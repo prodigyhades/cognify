@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cognify - Level 0 MVP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Simple loading spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #4f46e5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="max-w-2xl w-full p-8 bg-gray-800 rounded-lg shadow-lg">
+        <h1 class="text-3xl font-bold text-center mb-2">Cognify 🧠</h1>
+        <p class="text-center text-gray-400 mb-6">Level 0: Core Originality Engine</p>
+
+        <form id="ideaForm" class="space-y-4">
+            <div>
+                <label for="ideaText" class="block text-sm font-medium text-gray-300 mb-1">Your Idea (Max 280 chars):</label>
+                <textarea id="ideaText" name="ideaText" rows="4" maxlength="280"
+                          class="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                          placeholder="What's your new idea? e.g., 'A social credit system for India'"></textarea>
+                <div class="text-right text-sm text-gray-500">
+                    <span id="charCount">0</span> / 280
+                </div>
+            </div>
+
+            <button type="submit" id="submitButton"
+                    class="w-full flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-md transition duration-300 ease-in-out">
+                <span id="buttonText">Analyze Originality</span>
+                <div id="loadingSpinner" class="spinner hidden ml-2"></div>
+            </button>
+        </form>
+
+        <div id="resultContainer" class="mt-6 hidden">
+            <h2 class="text-xl font-semibold mb-2">Analysis Result:</h2>
+            <pre id="resultOutput"
+                 class="w-full p-4 bg-gray-900 border border-gray-700 rounded-md text-sm overflow-x-auto whitespace-pre-wrap"></pre>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        // ⚠️ IMPORTANT: Replace this with your n8n Webhook URL from Step 0.3
+        const WEBHOOK_URL = 'YOUR_N8N_WEBHOOK_URL_GOES_HERE';
+
+        // --- ELEMENTS ---
+        const form = document.getElementById('ideaForm');
+        const ideaText = document.getElementById('ideaText');
+        const charCount = document.getElementById('charCount');
+        const submitButton = document.getElementById('submitButton');
+        const buttonText = document.getElementById('buttonText');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const resultContainer = document.getElementById('resultContainer');
+        const resultOutput = document.getElementById('resultOutput');
+
+        // --- EVENT LISTENERS ---
+        
+        // Character counter
+        ideaText.addEventListener('input', () => {
+            charCount.textContent = ideaText.value.length;
+        });
+
+        // Form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Prevent default form submission
+            
+            if (ideaText.value.trim() === '') {
+                alert('Please enter an idea.');
+                return;
+            }
+
+            if (WEBHOOK_URL === 'YOUR_N8N_WEBHOOK_URL_GOES_HERE') {
+                alert('ERROR: WEBHOOK_URL is not configured in the <script> tag.');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: ideaText.value
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                displayResult(result);
+
+            } catch (error) {
+                console.error('Error submitting idea:', error);
+                displayResult({ error: error.message });
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // --- HELPER FUNCTIONS ---
+        
+        function setLoading(isLoading) {
+            if (isLoading) {
+                submitButton.disabled = true;
+                buttonText.textContent = 'Analyzing...';
+                loadingSpinner.classList.remove('hidden');
+                resultContainer.classList.add('hidden');
+            } else {
+                submitButton.disabled = false;
+                buttonText.textContent = 'Analyze Originality';
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        function displayResult(data) {
+            resultOutput.textContent = JSON.stringify(data, null, 2); // Pretty-print JSON
+            resultContainer.classList.remove('hidden');
+        }
+
+    </script>
+</body>
+</html>
