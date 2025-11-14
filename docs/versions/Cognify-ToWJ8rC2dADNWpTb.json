@@ -1,0 +1,649 @@
+[
+  {
+    "updatedAt": "2025-11-14T13:35:56.000Z",
+    "createdAt": "2025-11-06T17:30:56.365Z",
+    "id": "ToWJ8rC2dADNWpTb",
+    "name": "Cognify",
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "cognify-v0",
+          "responseMode": "responseNode",
+          "options": {
+            "rawBody": true
+          }
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          -16
+        ],
+        "id": "4d46d305-2089-4f2a-af50-a92f65b1ada8",
+        "name": "Webhook",
+        "webhookId": "4c6c4d1c-f7f8-4911-b42d-5cbf7aa46c29"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "/* ==================================\n * Normalize & Hash (Manual SHA-256)\n * Compatible with n8n webhook JSON:\n * {\n *   \"body\": { \"text\": \"...\" },\n *   \"headers\": { ... },\n *   ...\n * }\n * ==================================\n */\n\n// Manual SHA-256 implementation (no crypto import)\nfunction sha256(msg) {\n    function rightRotate(n, x) { return (x >>> n) | (x << (32 - n)); }\n    function choice(x, y, z) { return (x & y) ^ (~x & z); }\n    function majority(x, y, z) { return (x & y) ^ (x & z) ^ (y & z); }\n    function sigma0(x) { return rightRotate(2, x) ^ rightRotate(13, x) ^ rightRotate(22, x); }\n    function sigma1(x) { return rightRotate(6, x) ^ rightRotate(11, x) ^ rightRotate(25, x); }\n    function gamma0(x) { return rightRotate(7, x) ^ rightRotate(18, x) ^ (x >>> 3); }\n    function gamma1(x) { return rightRotate(17, x) ^ rightRotate(19, x) ^ (x >>> 10); }\n\n    var K = [\n      0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,\n      0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,\n      0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,\n      0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,\n      0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,\n      0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,\n      0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,\n      0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2\n    ];\n    var H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];\n\n    msg = unescape(encodeURIComponent(msg)); // UTF-8\n    var l = msg.length;\n    var N = Math.ceil((l + 9) / 64);\n    var M = new Array(N);\n\n    for (var i = 0; i < N; i++) {\n        M[i] = new Array(16);\n        for (var j = 0; j < 16; j++) {\n            var idx = i * 64 + j * 4;\n            M[i][j] =\n                ((msg.charCodeAt(idx) || 0) << 24) |\n                ((msg.charCodeAt(idx + 1) || 0) << 16) |\n                ((msg.charCodeAt(idx + 2) || 0) << 8) |\n                ((msg.charCodeAt(idx + 3) || 0));\n        }\n    }\n\n    // Padding\n    M[N - 1][((l % 64) >> 2)] |= 0x80 << (24 - 8 * (l % 4));\n    M[N - 1][14] = ((l * 8) / Math.pow(2, 32)) | 0;\n    M[N - 1][15] = (l * 8) & 0xffffffff;\n\n    var W = new Array(64);\n    var a, b, c, d, e, f, g, h;\n    for (var i = 0; i < N; i++) {\n        for (var t = 0; t < 16; t++) W[t] = M[i][t];\n        for (var t = 16; t < 64; t++) {\n            W[t] = (gamma1(W[t - 2]) + W[t - 7] + gamma0(W[t - 15]) + W[t - 16]) & 0xffffffff;\n        }\n        a = H[0]; b = H[1]; c = H[2]; d = H[3]; e = H[4]; f = H[5]; g = H[6]; h = H[7];\n        for (var t = 0; t < 64; t++) {\n            var T1 = (h + sigma1(e) + choice(e, f, g) + K[t] + W[t]) & 0xffffffff;\n            var T2 = (sigma0(a) + majority(a, b, c)) & 0xffffffff;\n            h = g; g = f; f = e; e = (d + T1) & 0xffffffff;\n            d = c; c = b; b = a; a = (T1 + T2) & 0xffffffff;\n        }\n        H[0] = (H[0] + a) & 0xffffffff;\n        H[1] = (H[1] + b) & 0xffffffff;\n        H[2] = (H[2] + c) & 0xffffffff;\n        H[3] = (H[3] + d) & 0xffffffff;\n        H[4] = (H[4] + e) & 0xffffffff;\n        H[5] = (H[5] + f) & 0xffffffff;\n        H[6] = (H[6] + g) & 0xffffffff;\n        H[7] = (H[7] + h) & 0xffffffff;\n    }\n\n    function toHex(n) {\n        let s = \"\";\n        for (let i = 7; i >= 0; i--) s += ((n >>> (i * 4)) & 0xf).toString(16);\n        return s;\n    }\n\n    return H.map(toHex).join(\"\");\n}\n\n// ==================================\n// MAIN EXECUTION\n// ==================================\nconst rawText = $json.body?.text;\n\nif (!rawText || typeof rawText !== \"string\") {\n    return {\n        error: true,\n        message: \"Expected JSON with body.text (string)\",\n        received_shape: $json\n    };\n}\n\n// 1️⃣ Normalize\nconst normalized_text = rawText\n    .toLowerCase()\n    .normalize(\"NFD\")\n    .replace(/\\p{Diacritic}/gu, \"\")\n    .replace(/[.,!?;:\"'’(){}\\[\\]<>]/g, \"\")\n    .replace(/\\s+/g, \" \")\n    .trim();\n\n// 2️⃣ Hash\nconst idea_id = sha256(normalized_text);\n\n// 3️⃣ Return\nreturn {\n    error: false,\n    raw_text: rawText,\n    normalized_text,\n    idea_id,\n    timestamp: new Date().toISOString(),\n    is_duplicate: false,\n    source: \"webhook\"\n};\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          224,
+          -16
+        ],
+        "id": "72ecdc5c-065a-4af4-8fae-179677d01f44",
+        "name": "Normalize & Hash"
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          2048,
+          -16
+        ],
+        "id": "ad7b71b4-87f7-41ad-af27-517e5519126f",
+        "name": "Respond to Webhook"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "/* * ==================================\n * Decision Fusion (v14 - Upgraded v9)\n * ==================================\n * This is based on the flawless v9 logic:\n * - Accesses each upstream node directly.\n * - Adds the new Step 1.1 Qdrant status.\n */\n\n// --- 1. Get Normalization Data ---\n// (From v9) Get data directly from the source node.\nconst normData = $('Normalize & Hash').item.json;\n\n// Check if we have the key data\nif (!normData || !normData.idea_id || !normData.normalized_text) {\n  return {\n    verdict: 'ERROR',\n    proof_id: null, timestamp: new Date().toISOString(),\n    components: {\n      deterministic: { is_duplicate: false, normalized_text: 'Unknown' },\n      ai_analysis: { summary: \"Critical error: 'Normalize & Hash' data was not found.\" }\n    }\n  };\n}\n\n// --- 2. Get Gemini Data ---\n// (From v9) Get data from the LLM chain node.\nconst geminiRawOutput = $('Basic LLM Chain').item.json.text;\n\n// --- 3. Parse Gemini Data ---\n// (From v9)\nlet geminiData = {};\ntry {\n  if (geminiRawOutput && typeof geminiRawOutput === 'string' && geminiRawOutput.trim() !== '') {\n    const jsonString = geminiRawOutput.replace(/```json\\n|```/g, '').trim();\n    geminiData = JSON.parse(jsonString);\n    \n    if (!geminiData.sentiment || !geminiData.summary) {\n      throw new Error(\"Parsed JSON is missing 'sentiment' or 'summary' keys.\");\n    }\n  } else {\n    throw new Error('Gemini node returned no usable output.');\n  }\n} catch (e) {\n  console.error('Failed to parse Gemini JSON:', geminiRawOutput, 'Error:', e.message);\n  geminiData = {\n    sentiment: 'unknown',\n    summary: 'AI analysis failed or returned invalid format.',\n    error_details: e.message,\n    raw_output: geminiRawOutput || null\n  };\n}\n\n// --- 4. Get Qdrant Status ---\n// (NEW) Get data from the Qdrant node.\n// Your screenshot (000239) shows its output has 'pageContent'.\nconst qdrantResult = $('Qdrant Vector Store').item.json;\nconst embeddingStored = (qdrantResult && qdrantResult.pageContent) ? true : false;\n\n// --- 5. Assemble Final Response ---\n// (From v9)\nconst { idea_id, normalized_text, timestamp, is_duplicate } = normData;\nconst verdict = 'UNIQUE';\n\n// (NEW) We add the 'embedding_stored' status to normData\n// so 'Append row in sheet' can read it.\nnormData.verdict = verdict;\nnormData.sentiment = geminiData.sentiment;\nnormData.summary = geminiData.summary;\nnormData.model = 'models/gemini-2.5-flash';\nnormData.embedding_stored = embeddingStored; // <-- NEW LINE\n\nconst finalResponse = {\n  verdict: verdict,\n  proof_id: idea_id,\n  timestamp: timestamp,\n  components: {\n    deterministic: {\n      is_duplicate: is_duplicate ?? false, // Handles potential null\n      normalized_text: normalized_text\n    },\n    ai_analysis: {\n      model: 'models/gemini-2.5-flash', \n      sentiment: geminiData.sentiment,\n      summary: geminiData.summary,\n      ...(geminiData.error_details && { \n        error_details: geminiData.error_details,\n        raw_output: geminiData.raw_output\n      })\n    },\n    // (NEW) Add the new vector_db component\n    vector_db: {\n      embedding_stored: embeddingStored\n    }\n  }\n};\n\nreturn finalResponse;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1600,
+          112
+        ],
+        "id": "f8e0c6bd-a0c9-4e41-9b86-702c451a3be1",
+        "name": "Decision Fusion"
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=You are an AI evaluator for idea originality and sentiment.\nAnalyze the following idea and return a valid JSON object with exactly two keys:\n- sentiment: \"Positive\", \"Negative\", or \"Neutral\"\n- summary: a concise one-sentence summary of the idea.\n\nIdea: {{ $('Normalize & Hash').item.json.normalized_text }}",
+          "batching": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.7,
+        "position": [
+          1248,
+          112
+        ],
+        "id": "a05c6139-0325-4708-90c7-91e8419b4835",
+        "name": "Basic LLM Chain",
+        "retryOnFail": true,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+        "typeVersion": 1,
+        "position": [
+          1328,
+          336
+        ],
+        "id": "3e02e048-5d03-4730-b543-888df5505dae",
+        "name": "Google Gemini Chat Model1",
+        "credentials": {
+          "googlePalmApi": {
+            "id": "0x7Pwy6QJHE2z1VD",
+            "name": "Google Gemini(PaLM) Api account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "documentId": {
+            "__rl": true,
+            "value": "17xY4xz4ayZMW2Sq4HLy_1Qf5VvumzbE1SXoztPt6EgY",
+            "mode": "list",
+            "cachedResultName": "cognify_db",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17xY4xz4ayZMW2Sq4HLy_1Qf5VvumzbE1SXoztPt6EgY/edit?usp=drivesdk"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "gid=0",
+            "mode": "list",
+            "cachedResultName": "ideas",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17xY4xz4ayZMW2Sq4HLy_1Qf5VvumzbE1SXoztPt6EgY/edit#gid=0"
+          },
+          "filtersUI": {
+            "values": [
+              {
+                "lookupColumn": "idea_id",
+                "lookupValue": "={{ $('Normalize & Hash').item.json.idea_id }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.7,
+        "position": [
+          448,
+          -16
+        ],
+        "id": "e75b6ed6-3f49-4eaf-b4ed-7c55fb8f7c4c",
+        "name": "Search Sheet for idea_id",
+        "alwaysOutputData": true,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "bH4FiG4USxDwWp2m",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "732b3c3b-fac1-4765-94ea-f0a1de053c4f",
+                "leftValue": "={{ Object.keys($('Search Sheet for idea_id').item.json).length }}",
+                "rightValue": 0,
+                "operator": {
+                  "type": "number",
+                  "operation": "gt"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          672,
+          -16
+        ],
+        "id": "95e35d8c-3d10-4c95-acac-d7331bc3babf",
+        "name": "If",
+        "alwaysOutputData": false
+      },
+      {
+        "parameters": {
+          "operation": "append",
+          "documentId": {
+            "__rl": true,
+            "value": "17xY4xz4ayZMW2Sq4HLy_1Qf5VvumzbE1SXoztPt6EgY",
+            "mode": "list",
+            "cachedResultName": "cognify_db",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17xY4xz4ayZMW2Sq4HLy_1Qf5VvumzbE1SXoztPt6EgY/edit?usp=drivesdk"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "gid=0",
+            "mode": "list",
+            "cachedResultName": "ideas",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17xY4xz4ayZMW2Sq4HLy_1Qf5VvumzbE1SXoztPt6EgY/edit#gid=0"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "idea_id": "={{ $('Normalize & Hash').item.json.idea_id }}",
+              "timestamp": "={{ $('Normalize & Hash').item.json.timestamp }}",
+              "normalized_text": "={{ $('Normalize & Hash').item.json.normalized_text }}",
+              "raw_text": "={{ $('Normalize & Hash').item.json.raw_text }}",
+              "verdict": "={{ $json.verdict }}",
+              "sentiment": "={{ $json.components.ai_analysis.sentiment }}",
+              "summary": "={{ $json.components.ai_analysis.summary }}",
+              "model": "={{ $json.components.ai_analysis.model }}",
+              "embedding_stored": "={{ $json.components.vector_db.embedding_stored }}"
+            },
+            "matchingColumns": [
+              "idea_id"
+            ],
+            "schema": [
+              {
+                "id": "idea_id",
+                "displayName": "idea_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "timestamp",
+                "displayName": "timestamp",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "normalized_text",
+                "displayName": "normalized_text",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "raw_text",
+                "displayName": "raw_text",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "verdict",
+                "displayName": "verdict",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "sentiment",
+                "displayName": "sentiment",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "summary",
+                "displayName": "summary",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "model",
+                "displayName": "model",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "embedding_stored",
+                "displayName": "embedding_stored",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.7,
+        "position": [
+          1824,
+          112
+        ],
+        "id": "bfeba95c-b321-4ac1-931e-bb81957c3943",
+        "name": "Append row in sheet",
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "bH4FiG4USxDwWp2m",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "/* ==================================\n * Decision Fusion (Duplicate)\n * ==================================\n * This node formats the response when\n * a duplicate is found.\n */\n\n// Get the data from the 'Search Sheet' node\n// We use $json because it's the first (and only) item found\nconst searchResult = $json;\n\n// We need to re-format the data from the sheet\n// to match our finalResponse structure.\nconst finalResponse = {\n  verdict: 'DUPLICATE',\n  proof_id: searchResult.idea_id,\n  timestamp: searchResult.timestamp, // The timestamp of the *original* idea\n  components: {\n    deterministic: {\n      is_duplicate: true,\n      normalized_text: searchResult.normalized_text\n    },\n    ai_analysis: {\n      model: searchResult.model,\n      sentiment: searchResult.sentiment,\n      summary: searchResult.summary,\n      note: \"This is a duplicate. Analysis is from the original submission.\"\n    }\n  }\n};\n\nreturn finalResponse;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1824,
+          -144
+        ],
+        "id": "0addc5a2-9e8c-47cf-830d-5b677f305483",
+        "name": "Decision Fusion (Duplicate)"
+      },
+      {
+        "parameters": {},
+        "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+        "typeVersion": 1,
+        "position": [
+          912,
+          336
+        ],
+        "id": "bda8ce79-aca1-49df-b9ec-aff2568c90c3",
+        "name": "Embeddings Google Gemini",
+        "credentials": {
+          "googlePalmApi": {
+            "id": "0x7Pwy6QJHE2z1VD",
+            "name": "Google Gemini(PaLM) Api account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "mode": "insert",
+          "qdrantCollection": {
+            "__rl": true,
+            "value": "ideas",
+            "mode": "list",
+            "cachedResultName": "ideas"
+          },
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+        "typeVersion": 1.3,
+        "position": [
+          896,
+          112
+        ],
+        "id": "9ac1c6fc-7106-414d-8729-9e564731fc74",
+        "name": "Qdrant Vector Store",
+        "credentials": {
+          "qdrantApi": {
+            "id": "KbEQdjAPn0jA0Ij9",
+            "name": "My Qdrant Cloud"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsonMode": "expressionData",
+          "jsonData": "={{ $('Normalize & Hash').item.json.normalized_text }}",
+          "options": {
+            "metadata": {
+              "metadataValues": [
+                {
+                  "name": "idea_id",
+                  "value": "={{ $('Normalize & Hash').item.json.idea_id }}"
+                },
+                {
+                  "name": "raw_text",
+                  "value": "={{ $('Normalize & Hash').item.json.raw_text }}"
+                },
+                {
+                  "name": "timestamp",
+                  "value": "={{ $('Normalize & Hash').item.json.timestamp }}"
+                }
+              ]
+            }
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+        "typeVersion": 1.1,
+        "position": [
+          1040,
+          336
+        ],
+        "id": "c21dcaed-9f4e-4e50-8331-6d5a4ac5a64b",
+        "name": "Default Data Loader"
+      },
+      {
+        "parameters": {
+          "content": "## Click [here](http://localhost:5678/form/commit?id=ToWJ8rC2dADNWpTb) to commit change",
+          "height": 140,
+          "width": 440,
+          "color": 5
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "position": [
+          0,
+          -304
+        ],
+        "typeVersion": 1,
+        "id": "46f88326-aac6-4a56-ae7b-88543ec611a5",
+        "name": "Sticky Note"
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Normalize & Hash",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize & Hash": {
+        "main": [
+          [
+            {
+              "node": "Search Sheet for idea_id",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Decision Fusion": {
+        "main": [
+          [
+            {
+              "node": "Append row in sheet",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Google Gemini Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Basic LLM Chain",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Basic LLM Chain": {
+        "main": [
+          [
+            {
+              "node": "Decision Fusion",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Respond to Webhook": {
+        "main": [
+          []
+        ]
+      },
+      "Search Sheet for idea_id": {
+        "main": [
+          [
+            {
+              "node": "If",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "If": {
+        "main": [
+          [
+            {
+              "node": "Decision Fusion (Duplicate)",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Qdrant Vector Store",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Decision Fusion (Duplicate)": {
+        "main": [
+          [
+            {
+              "node": "Respond to Webhook",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Append row in sheet": {
+        "main": [
+          [
+            {
+              "node": "Respond to Webhook",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Embeddings Google Gemini": {
+        "ai_embedding": [
+          [
+            {
+              "node": "Qdrant Vector Store",
+              "type": "ai_embedding",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Default Data Loader": {
+        "ai_document": [
+          [
+            {
+              "node": "Qdrant Vector Store",
+              "type": "ai_document",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Qdrant Vector Store": {
+        "main": [
+          [
+            {
+              "node": "Basic LLM Chain",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": null,
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "ad5550b4-4810-43d9-96ab-d2579b235227",
+    "versionCounter": 132,
+    "triggerCount": 1,
+    "shared": [
+      {
+        "updatedAt": "2025-11-06T17:30:56.380Z",
+        "createdAt": "2025-11-06T17:30:56.380Z",
+        "role": "workflow:owner",
+        "workflowId": "ToWJ8rC2dADNWpTb",
+        "projectId": "tmc8BYRYmjwnIgTJ",
+        "project": {
+          "updatedAt": "2025-11-06T16:44:13.253Z",
+          "createdAt": "2025-11-05T18:43:57.939Z",
+          "id": "tmc8BYRYmjwnIgTJ",
+          "name": "Venkatesh Patnaikuni <prodigyhades2004@gmail.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "projectRelations": [
+            {
+              "updatedAt": "2025-11-05T18:43:57.939Z",
+              "createdAt": "2025-11-05T18:43:57.939Z",
+              "userId": "a0be5d72-118b-474a-aab5-18afffe67643",
+              "projectId": "tmc8BYRYmjwnIgTJ",
+              "user": {
+                "updatedAt": "2025-11-14T11:58:52.000Z",
+                "createdAt": "2025-11-05T18:43:56.963Z",
+                "id": "a0be5d72-118b-474a-aab5-18afffe67643",
+                "email": "prodigyhades2004@gmail.com",
+                "firstName": "Venkatesh",
+                "lastName": "Patnaikuni",
+                "personalizationAnswers": {
+                  "version": "v4",
+                  "personalization_survey_submitted_at": "2025-11-06T16:44:36.662Z",
+                  "personalization_survey_n8n_version": "1.118.2",
+                  "companyType": "personal",
+                  "reportedSource": "youtube"
+                },
+                "settings": {
+                  "userActivated": true,
+                  "easyAIWorkflowOnboarded": true,
+                  "firstSuccessfulWorkflowId": "ToWJ8rC2dADNWpTb",
+                  "userActivatedAt": 1762460170887,
+                  "dismissedCallouts": {
+                    "ragStarterCallout": true
+                  },
+                  "npsSurvey": {
+                    "responded": true,
+                    "lastShownAt": 1762973220751
+                  }
+                },
+                "disabled": false,
+                "mfaEnabled": false,
+                "lastActiveAt": "2025-11-14",
+                "isPending": false
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "tags": []
+  }
+]
