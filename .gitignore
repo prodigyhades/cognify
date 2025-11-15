@@ -21,4 +21,5 @@ database.sqlite
 
 # OS-specific
 .DS_Store
-Thumbs.db
+
+/level-0-workflow.json
