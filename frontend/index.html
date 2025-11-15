@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cognify - Level 0 MVP</title>
+    <title>Cognify - Level 1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Simple loading spinner */
@@ -18,20 +18,41 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        /* Star Rating */
+        .star-rating {
+            display: flex;
+            flex-direction: row-reverse;
+            justify-content: center;
+        }
+        .star-rating input[type="radio"] {
+            display: none;
+        }
+        .star-rating label {
+            font-size: 2.5rem;
+            color: #4a5568; /* gray-600 */
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .star-rating input[type="radio"]:checked ~ label,
+        .star-rating label:hover,
+        .star-rating label:hover ~ label {
+            color: #f59e0b; /* amber-500 */
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen">
+<body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen py-12">
 
     <div class="max-w-2xl w-full p-8 bg-gray-800 rounded-lg shadow-lg">
         <h1 class="text-3xl font-bold text-center mb-2">Cognify 🧠</h1>
-        <p class="text-center text-gray-400 mb-6">Level 0: Core Originality Engine</p>
+        <p class="text-center text-gray-400 mb-6">Level 1: Semantic & Crowd Analysis</p>
 
         <form id="ideaForm" class="space-y-4">
             <div>
                 <label for="ideaText" class="block text-sm font-medium text-gray-300 mb-1">Your Idea (Max 280 chars):</label>
                 <textarea id="ideaText" name="ideaText" rows="4" maxlength="280"
                           class="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                          placeholder="What's your new idea? e.g., 'A social credit system for India'"></textarea>
+                          placeholder="What's your new idea? e.g., 'A fork that vibrates if you eat too fast'"></textarea>
                 <div class="text-right text-sm text-gray-500">
                     <span id="charCount">0</span> / 280
                 </div>
@@ -44,17 +65,23 @@
             </button>
         </form>
 
-        <div id="resultContainer" class="mt-6 hidden">
-            <h2 class="text-xl font-semibold mb-2">Analysis Result:</h2>
-            <pre id="resultOutput"
-                 class="w-full p-4 bg-gray-900 border border-gray-700 rounded-md text-sm overflow-x-auto whitespace-pre-wrap"></pre>
+        <div id="resultContainer" class="mt-6 hidden space-y-6">
+            
+            <div id="resultOutput"></div>
+
+            <pre id="debugOutput" class="w-full p-4 bg-gray-900 border border-gray-700 rounded-md text-sm overflow-x-auto whitespace-pre-wrap hidden"></pre>
+        
         </div>
     </div>
 
     <script>
         // --- CONFIGURATION ---
-        // ⚠️ IMPORTANT: Replace this with your n8n Webhook URL from Step 0.3
-        const WEBHOOK_URL = 'http://localhost:5678/webhook/cognify-v0';
+        // ⚠️ IMPORTANT: Update these URLs
+        const ANALYZE_WEBHOOK_URL = 'http://localhost:5678/webhook/cognify-v0';
+        const RATING_WEBHOOK_URL = 'http://localhost:5678/webhook/cognify-rate';
+        
+        // --- STATE ---
+        let currentProofId = null;
 
         // --- ELEMENTS ---
         const form = document.getElementById('ideaForm');
@@ -65,6 +92,7 @@
         const loadingSpinner = document.getElementById('loadingSpinner');
         const resultContainer = document.getElementById('resultContainer');
         const resultOutput = document.getElementById('resultOutput');
+        const debugOutput = document.getElementById('debugOutput');
 
         // --- EVENT LISTENERS ---
         
@@ -75,37 +103,33 @@
 
         // Form submission
         form.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Prevent default form submission
-            
-            if (ideaText.value.trim() === '') {
-                alert('Please enter an idea.');
-                return;
-            }
-
-            if (WEBHOOK_URL === 'YOUR_N8N_WEBHOOK_URL_GOES_HERE') {
-                alert('ERROR: WEBHOOK_URL is not configured in the <script> tag.');
+            e.preventDefault();
+            if (ideaText.value.trim() === '') return;
+            if (ANALYZE_WEBHOOK_URL.includes('YOUR_')) {
+                alert('ERROR: ANALYZE_WEBHOOK_URL is not configured.');
                 return;
             }
 
             setLoading(true);
+            currentProofId = null; // Reset proof ID
 
             try {
-                const response = await fetch(WEBHOOK_URL, {
+                const response = await fetch(ANALYZE_WEBHOOK_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        text: ideaText.value
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: ideaText.value })
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
-
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                 const result = await response.json();
+                
+                // Store proof_id for rating
+                if(result.proof_id) {
+                    currentProofId = result.proof_id;
+                }
+                
                 displayResult(result);
+                // debugOutput.textContent = JSON.stringify(result, null, 2); // Uncomment to debug
 
             } catch (error) {
                 console.error('Error submitting idea:', error);
@@ -115,23 +139,125 @@
             }
         });
 
-        // --- HELPER FUNCTIONS ---
-        
-        function setLoading(isLoading) {
-            if (isLoading) {
-                submitButton.disabled = true;
-                buttonText.textContent = 'Analyzing...';
-                loadingSpinner.classList.remove('hidden');
-                resultContainer.classList.add('hidden');
-            } else {
-                submitButton.disabled = false;
-                buttonText.textContent = 'Analyze Originality';
-                loadingSpinner.classList.add('hidden');
+        // --- RATING SUBMISSION ---
+        async function submitRating(rating) {
+            if (!currentProofId) {
+                alert('Could not find a proof_id to rate.');
+                return;
+            }
+            if (RATING_WEBHOOK_URL.includes('YOUR_')) {
+                alert('ERROR: RATING_WEBHOOK_URL is not configured.');
+                return;
+            }
+
+            const ratingElement = document.getElementById('ratingSection');
+            ratingElement.innerHTML = `<p class="text-center text-amber-500">Submitting your ${rating}-star rating...</p>`;
+
+            try {
+                const response = await fetch(RATING_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        idea_id: currentProofId,
+                        rating: rating
+                    })
+                });
+
+                if (!response.ok) throw new Error('Rating submission failed.');
+                
+                // Show success message
+                setTimeout(() => {
+                    ratingElement.innerHTML = `<p class="text-center text-green-400 font-bold">Thank you for your rating!</p>`;
+                }, 1000);
+
+            } catch (error) {
+                console.error('Error submitting rating:', error);
+                ratingElement.innerHTML = `<p class="text-center text-red-400">Error: ${error.message}</p>`;
             }
         }
 
+        // --- HELPER FUNCTIONS ---
+        
+        function setLoading(isLoading) {
+            submitButton.disabled = isLoading;
+            loadingSpinner.classList.toggle('hidden', !isLoading);
+            buttonText.textContent = isLoading ? 'Analyzing...' : 'Analyze Originality';
+            resultContainer.classList.add('hidden');
+        }
+
         function displayResult(data) {
-            resultOutput.textContent = JSON.stringify(data, null, 2); // Pretty-print JSON
+            resultOutput.innerHTML = ''; // Clear previous results
+
+            if (data.error) {
+                resultOutput.innerHTML = `<h2 class="text-2xl font-semibold text-red-400">Error</h2><p>${data.error}</p>`;
+                resultContainer.classList.remove('hidden');
+                return;
+            }
+
+            // Build the dynamic HTML
+            let html = '';
+
+            // 1. Verdict Header
+            if (data.verdict === 'UNIQUE') {
+                html += `<h2 class="text-2xl font-semibold text-green-400">Verdict: ${data.verdict}</h2>`;
+            } else {
+                html += `<h2 class="text-2xl font-semibold text-amber-400">Verdict: ${data.verdict}</h2>`;
+                if(data.components?.ai_analysis?.note) {
+                    html += `<p class="text-sm text-gray-400">${data.components.ai_analysis.note}</p>`;
+                }
+            }
+            html += `<p class="text-xs font-mono text-gray-500">Proof ID: ${data.proof_id}</p>`;
+            
+            // 2. AI Analysis Block
+            const ai = data.components?.ai_analysis;
+            if(ai) {
+                html += '<div class="border-t border-gray-700 pt-4 mt-4">';
+                html += `<h3 class="text-xl font-semibold mb-3">Cognitive Analysis</h3>`;
+                
+                // Ambiguity Bar
+                const ambiguity = (ai.ambiguity_index || 0) * 100;
+                html += `
+                    <div>
+                        <label class="text-sm font-medium">Ambiguity Index</label>
+                        <div class="w-full bg-gray-700 rounded-full h-2.5">
+                            <div class="bg-indigo-500 h-2.5 rounded-full" style="width: ${ambiguity}%"></div>
+                        </div>
+                        <p class="text-xs text-gray-400">${ai.ambiguity_index} (0.0 = Specific, 1.0 = Abstract)</p>
+                    </div>
+                `;
+
+                // Summary
+                html += `<p class="mt-3"><strong class="text-gray-300">Summary:</strong> ${ai.summary}</p>`;
+                
+                // Interpretations
+                if (ai.interpretations && ai.interpretations.length > 0) {
+                    html += '<h4 class="text-md font-semibold mt-4 mb-2">Possible Interpretations:</h4>';
+                    html += '<ul class="list-disc list-inside space-y-1">';
+                    ai.interpretations.forEach(item => {
+                        html += `<li><strong class="text-indigo-300">${item.theme}:</strong> ${item.interpretation}</li>`;
+                    });
+                    html += '</ul>';
+                }
+                html += '</div>';
+            }
+
+            // 3. Crowd-Check Rating Block
+            if (data.verdict === 'UNIQUE' || data.components?.ai_analysis?.note) {
+                html += `
+                    <div id="ratingSection" class="border-t border-gray-700 pt-4 mt-4">
+                        <h3 class="text-xl font-semibold text-center mb-2">Rate this Idea</h3>
+                        <div class="star-rating">
+                            <input type="radio" id="star5" name="rating" value="5" onclick="submitRating(5)"><label for="star5" title="5 stars">★</label>
+                            <input type="radio" id="star4" name="rating" value="4" onclick="submitRating(4)"><label for="star4" title="4 stars">★</label>
+                            <input type="radio" id="star3" name="rating" value="3" onclick="submitRating(3)"><label for="star3" title="3 stars">★</label>
+                            <input type="radio" id="star2" name="rating" value="2" onclick="submitRating(2)"><label for="star2" title="2 stars">★</label>
+                            <input type="radio" id="star1" name="rating" value="1" onclick="submitRating(1)"><label for="star1" title="1 star">★</label>
+                        </div>
+                    </div>
+                `;
+            }
+
+            resultOutput.innerHTML = html;
             resultContainer.classList.remove('hidden');
         }
 
