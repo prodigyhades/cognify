@@ -1,10 +1,10 @@
 [
   {
-    "updatedAt": "2025-11-14T16:40:44.000Z",
+    "updatedAt": "2025-11-16T08:57:54.000Z",
     "createdAt": "2025-11-06T17:30:56.365Z",
     "id": "ToWJ8rC2dADNWpTb",
     "name": "Cognify",
-    "active": false,
+    "active": true,
     "isArchived": false,
     "nodes": [
       {
@@ -42,6 +42,8 @@
       },
       {
         "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ $json.frontend_response ? $json.frontend_response : $json }}",
           "options": {}
         },
         "type": "n8n-nodes-base.respondToWebhook",
@@ -56,13 +58,13 @@
       {
         "parameters": {
           "mode": "runOnceForEachItem",
-          "jsCode": "/* * ==================================\n * Decision Fusion (v14 - Upgraded v9)\n * ==================================\n * This is based on the flawless v9 logic:\n * - Accesses each upstream node directly.\n * - Adds the new Step 1.1 Qdrant status.\n */\n\n// --- 1. Get Normalization Data ---\n// (From v9) Get data directly from the source node.\nconst normData = $('Normalize & Hash').item.json;\n\n// Check if we have the key data\nif (!normData || !normData.idea_id || !normData.normalized_text) {\n  return {\n    verdict: 'ERROR',\n    proof_id: null, timestamp: new Date().toISOString(),\n    components: {\n      deterministic: { is_duplicate: false, normalized_text: 'Unknown' },\n      ai_analysis: { summary: \"Critical error: 'Normalize & Hash' data was not found.\" }\n    }\n  };\n}\n\n// --- 2. Get Gemini Data ---\n// (From v9) Get data from the LLM chain node.\nconst geminiRawOutput = $('Basic LLM Chain').item.json.text;\n\n// --- 3. Parse Gemini Data ---\n// (From v9)\nlet geminiData = {};\ntry {\n  if (geminiRawOutput && typeof geminiRawOutput === 'string' && geminiRawOutput.trim() !== '') {\n    const jsonString = geminiRawOutput.replace(/```json\\n|```/g, '').trim();\n    geminiData = JSON.parse(jsonString);\n    \n    if (!geminiData.sentiment || !geminiData.summary) {\n      throw new Error(\"Parsed JSON is missing 'sentiment' or 'summary' keys.\");\n    }\n  } else {\n    throw new Error('Gemini node returned no usable output.');\n  }\n} catch (e) {\n  console.error('Failed to parse Gemini JSON:', geminiRawOutput, 'Error:', e.message);\n  geminiData = {\n    sentiment: 'unknown',\n    summary: 'AI analysis failed or returned invalid format.',\n    error_details: e.message,\n    raw_output: geminiRawOutput || null\n  };\n}\n\n// --- 4. Get Qdrant Status ---\n// (NEW) Get data from the Qdrant node.\n// Your screenshot (000239) shows its output has 'pageContent'.\nconst qdrantResult = $('Qdrant Vector Store').item.json;\nconst embeddingStored = (qdrantResult && qdrantResult.pageContent) ? true : false;\n\n// --- 5. Assemble Final Response ---\n// (From v9)\nconst { idea_id, normalized_text, timestamp, is_duplicate } = normData;\nconst verdict = 'UNIQUE';\n\n// (NEW) We add the 'embedding_stored' status to normData\n// so 'Append row in sheet' can read it.\nnormData.verdict = verdict;\nnormData.sentiment = geminiData.sentiment;\nnormData.summary = geminiData.summary;\nnormData.model = 'models/gemini-2.5-flash';\nnormData.embedding_stored = embeddingStored; // <-- NEW LINE\n\nconst finalResponse = {\n  verdict: verdict,\n  proof_id: idea_id,\n  timestamp: timestamp,\n  components: {\n    deterministic: {\n      is_duplicate: is_duplicate ?? false, // Handles potential null\n      normalized_text: normalized_text\n    },\n    ai_analysis: {\n      model: 'models/gemini-2.5-flash', \n      sentiment: geminiData.sentiment,\n      summary: geminiData.summary,\n      ...(geminiData.error_details && { \n        error_details: geminiData.error_details,\n        raw_output: geminiData.raw_output\n      })\n    },\n    // (NEW) Add the new vector_db component\n    vector_db: {\n      embedding_stored: embeddingStored\n    }\n  }\n};\n\nreturn finalResponse;"
+          "jsCode": "/* * ==================================\n * Decision Fusion (v21 - Single Output)\n * ==================================\n * This version creates one output item\n * containing two nested objects:\n * 1. 'frontend_response': for the UI\n * 2. 'sheet_data': for Google Sheets\n */\n\n// --- 1. Get Normalization Data ---\nconst normData = $('Normalize & Hash').item.json;\n\nif (!normData || !normData.idea_id || !normData.normalized_text) {\n  // Return a valid error for the frontend\n  return {\n    frontend_response: {\n      verdict: 'ERROR',\n      proof_id: null, timestamp: new Date().toISOString(),\n      components: {\n        deterministic: { is_duplicate: false, normalized_text: 'Unknown' },\n        ai_analysis: { summary: \"Critical error: 'Normalize & Hash' data was not found.\" }\n      }\n    },\n    sheet_data: {} // Send empty object to sheet path\n  };\n}\n\n// --- 2. Get Gemini Data ---\nconst geminiRawOutput = $('Basic LLM Chain').item.json.text;\n\n// --- 3. Parse Gemini Data ---\nlet aiAnalysis = {};\nlet geminiError = null;\ntry {\n  if (geminiRawOutput && typeof geminiRawOutput === 'string' && geminiRawOutput.trim() !== '') {\n    const jsonMatch = geminiRawOutput.match(/{[\\s\\S]*}/);\n    if (!jsonMatch || !jsonMatch[0]) {\n      throw new Error(\"No JSON object found in AI response.\");\n    }\n    const jsonString = jsonMatch[0];\n    aiAnalysis = JSON.parse(jsonString);\n    \n    if (!aiAnalysis.summary || !aiAnalysis.interpretations || aiAnalysis.ambiguity_index === undefined) {\n      throw new Error(\"Parsed JSON is missing 'summary', 'interpretations', or 'ambiguity_index'.\");\n    }\n  } else {\n    throw new Error('Gemini node returned no usable output.');\n  }\n} catch (e) {\n  console.error('Failed to parse Gemini JSON:', geminiRawOutput, 'Error:', e.message);\n  geminiError = {\n    error_details: e.message,\n    raw_output: geminiRawOutput || null\n  };\n  aiAnalysis = {\n    summary: 'Analysis failed.',\n    interpretations: [],\n    ambiguity_index: 1.0,\n    confidence: 0.0\n  };\n}\n\n// --- 4. Get Qdrant Status ---\nconst qdrantResult = $('Qdrant Vector Store').item.json;\nconst embeddingStored = (qdrantResult && qdrantResult.pageContent) ? true : false;\n\n// --- 5. Assemble Final Response ---\nconst { idea_id, normalized_text, timestamp, is_duplicate } = normData;\nconst verdict = 'UNIQUE';\n\n// A. Create the response for the frontend (with a real object)\nconst finalAiAnalysis = {\n  model: 'models/gemini-2.Mflash',\n  ...aiAnalysis,\n  ...(geminiError && { \n    error: geminiError\n  })\n};\nconst finalResponse = {\n  verdict: verdict,\n  proof_id: idea_id,\n  timestamp: timestamp,\n  components: {\n    deterministic: {\n      is_duplicate: is_duplicate ?? false,\n      normalized_text: normalized_text\n    },\n    ai_analysis: finalAiAnalysis, // <-- This is an OBJECT\n    vector_db: {\n      embedding_stored: embeddingStored\n    }\n  }\n};\n\n// B. Create the data for the Google Sheet\nconst sheetData = {\n  ...normData,\n  verdict: verdict,\n  ai_analysis: JSON.stringify(finalAiAnalysis), // Stringified\n  embedding_stored: embeddingStored\n};\n\n// C. Return ONE item that contains BOTH\nreturn {\n  frontend_response: finalResponse,\n  sheet_data: sheetData\n};"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1600,
-          112
+          1632,
+          96
         ],
         "id": "f8e0c6bd-a0c9-4e41-9b86-702c451a3be1",
         "name": "Decision Fusion"
@@ -70,7 +72,7 @@
       {
         "parameters": {
           "promptType": "define",
-          "text": "=You are an AI evaluator for idea originality and sentiment.\nAnalyze the following idea and return a valid JSON object with exactly two keys:\n- sentiment: \"Positive\", \"Negative\", or \"Neutral\"\n- summary: a concise one-sentence summary of the idea.\n\nIdea: {{ $('Normalize & Hash').item.json.normalized_text }}",
+          "text": "=You are a 'Cognitive Originality' evaluator. Your task is to analyze a user's idea and produce a structured JSON analysis.\n\nThe user's idea is:\n\"{{ $('Normalize & Hash').item.json.normalized_text }}\"\n\nProduce a JSON object with the *exact* following structure. Do NOT include ```json markdown wrappers or any other text.\n\n{\n  \"summary\": \"A 1-sentence summary of the core idea.\",\n  \"interpretations\": [\n    {\n      \"theme\": \"A 1-2 word theme (e.g., 'Logistics', 'Social', 'Gaming').\",\n      \"interpretation\": \"A 1-sentence explanation of a possible interpretation or application of the idea.\"\n    },\n    {\n      \"theme\": \"A 1-2 word theme.\",\n      \"interpretation\": \"A 1-sentence explanation of a *different* possible interpretation.\"\n    },\n    {\n      \"theme\": \"A 1-2 word theme.\",\n      \"interpretation\": \"A 1-sentence explanation of a *third* possible interpretation.\"\n    }\n  ],\n  \"ambiguity_index\": 0.0,\n  \"confidence\": 0.0\n}\n\nInstructions:\n1.  **summary:** Summarize the idea's primary function.\n2.  **interpretations:** Provide 3 distinct, plausible interpretations or applications. If the idea is very simple, you may have to get creative (e.g., a \"social\" angle, a \"monetization\" angle, a \"technical\" angle).\n3.  **ambiguity_index:** A score from 0.0 to 1.0.\n    * 0.0 = \"Extremely specific\" (e.g., \"A 10-inch red bike helmet\").\n    * 1.0 = \"Extremely ambiguous\" (e.g., \"A new way to feel\").\n4.  **confidence:** A score from 0.0 to 1.0 on how confident you are in your analysis.",
           "batching": {}
         },
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
@@ -91,7 +93,7 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
         "typeVersion": 1,
         "position": [
-          1328,
+          1248,
           336
         ],
         "id": "3e02e048-5d03-4730-b543-888df5505dae",
@@ -138,6 +140,8 @@
         "id": "e75b6ed6-3f49-4eaf-b4ed-7c55fb8f7c4c",
         "name": "Search Sheet for idea_id",
         "alwaysOutputData": true,
+        "retryOnFail": true,
+        "maxTries": 3,
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "bH4FiG4USxDwWp2m",
@@ -199,15 +203,13 @@
           "columns": {
             "mappingMode": "defineBelow",
             "value": {
-              "idea_id": "={{ $('Normalize & Hash').item.json.idea_id }}",
-              "timestamp": "={{ $('Normalize & Hash').item.json.timestamp }}",
-              "normalized_text": "={{ $('Normalize & Hash').item.json.normalized_text }}",
-              "raw_text": "={{ $('Normalize & Hash').item.json.raw_text }}",
-              "verdict": "={{ $json.verdict }}",
-              "sentiment": "={{ $json.components.ai_analysis.sentiment }}",
-              "summary": "={{ $json.components.ai_analysis.summary }}",
-              "model": "={{ $json.components.ai_analysis.model }}",
-              "embedding_stored": "={{ $json.components.vector_db.embedding_stored }}"
+              "idea_id": "={{ $json.sheet_data.idea_id }}",
+              "timestamp": "={{ $json.sheet_data.timestamp }}",
+              "normalized_text": "={{ $json.sheet_data.normalized_text }}",
+              "raw_text": "={{ $json.sheet_data.raw_text }}",
+              "embedding_stored": "={{ $json.sheet_data.embedding_stored }}",
+              "verdict": "={{ $json.sheet_data.verdict }}",
+              "ai_analysis": "={{ $json.sheet_data.ai_analysis }}"
             },
             "matchingColumns": [
               "idea_id"
@@ -264,28 +266,8 @@
                 "removed": false
               },
               {
-                "id": "sentiment",
-                "displayName": "sentiment",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": false
-              },
-              {
-                "id": "summary",
-                "displayName": "summary",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": false
-              },
-              {
-                "id": "model",
-                "displayName": "model",
+                "id": "ai_analysis",
+                "displayName": "ai_analysis",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -313,10 +295,11 @@
         "typeVersion": 4.7,
         "position": [
           1824,
-          112
+          224
         ],
         "id": "bfeba95c-b321-4ac1-931e-bb81957c3943",
         "name": "Append row in sheet",
+        "retryOnFail": false,
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "bH4FiG4USxDwWp2m",
@@ -342,7 +325,7 @@
         "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
         "typeVersion": 1,
         "position": [
-          912,
+          896,
           336
         ],
         "id": "bda8ce79-aca1-49df-b9ec-aff2568c90c3",
@@ -406,7 +389,7 @@
         "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
         "typeVersion": 1.1,
         "position": [
-          1040,
+          1088,
           336
         ],
         "id": "c21dcaed-9f4e-4e50-8331-6d5a4ac5a64b",
@@ -414,15 +397,15 @@
       },
       {
         "parameters": {
-          "content": "## Click [here](http://localhost:5678/form/commit?id=ToWJ8rC2dADNWpTb) to commit change",
-          "height": 140,
-          "width": 440,
+          "content": "## [Upload to github](http://localhost:5678/form/commit?id=ToWJ8rC2dADNWpTb)",
+          "height": 192,
+          "width": 456,
           "color": 6
         },
         "type": "n8n-nodes-base.stickyNote",
         "position": [
           0,
-          -304
+          -336
         ],
         "typeVersion": 1,
         "id": "46f88326-aac6-4a56-ae7b-88543ec611a5",
@@ -457,6 +440,11 @@
           [
             {
               "node": "Append row in sheet",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Respond to Webhook",
               "type": "main",
               "index": 0
             }
@@ -532,13 +520,7 @@
       },
       "Append row in sheet": {
         "main": [
-          [
-            {
-              "node": "Respond to Webhook",
-              "type": "main",
-              "index": 0
-            }
-          ]
+          []
         ]
       },
       "Embeddings Google Gemini": {
@@ -583,8 +565,8 @@
       "templateCredsSetupCompleted": true
     },
     "pinData": {},
-    "versionId": "508d70c1-ddd5-4a05-8abf-5bd7701a5873",
-    "versionCounter": 133,
+    "versionId": "3cb5cf9d-71e5-4e3a-9402-9709319797d4",
+    "versionCounter": 176,
     "triggerCount": 1,
     "shared": [
       {
@@ -608,7 +590,7 @@
               "userId": "a0be5d72-118b-474a-aab5-18afffe67643",
               "projectId": "tmc8BYRYmjwnIgTJ",
               "user": {
-                "updatedAt": "2025-11-14T11:58:52.000Z",
+                "updatedAt": "2025-11-16T06:20:10.000Z",
                 "createdAt": "2025-11-05T18:43:56.963Z",
                 "id": "a0be5d72-118b-474a-aab5-18afffe67643",
                 "email": "prodigyhades2004@gmail.com",
@@ -636,7 +618,7 @@
                 },
                 "disabled": false,
                 "mfaEnabled": false,
-                "lastActiveAt": "2025-11-14",
+                "lastActiveAt": "2025-11-16",
                 "isPending": false
               }
             }
