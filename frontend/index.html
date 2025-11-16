@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cognify - Level 1</title>
     <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
         /* Simple loading spinner */
         .spinner {
@@ -15,252 +16,220 @@
             height: 24px;
             animation: spin 1s linear infinite;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* Star Rating */
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Rating stars */
         .star-rating {
             display: flex;
             flex-direction: row-reverse;
             justify-content: center;
         }
-        .star-rating input[type="radio"] {
-            display: none;
-        }
+        .star-rating input { display: none; }
         .star-rating label {
             font-size: 2.5rem;
-            color: #4a5568; /* gray-600 */
+            color: #4a5568;
             cursor: pointer;
             transition: color 0.2s;
         }
-        .star-rating input[type="radio"]:checked ~ label,
+        .star-rating input:checked ~ label,
         .star-rating label:hover,
         .star-rating label:hover ~ label {
-            color: #f59e0b; /* amber-500 */
+            color: #fbbf24;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen py-12">
 
-    <div class="max-w-2xl w-full p-8 bg-gray-800 rounded-lg shadow-lg">
+<body class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center p-6">
+
+    <div class="max-w-2xl w-full bg-gray-800 p-8 rounded-lg shadow-xl">
         <h1 class="text-3xl font-bold text-center mb-2">Cognify 🧠</h1>
         <p class="text-center text-gray-400 mb-6">Level 1: Semantic & Crowd Analysis</p>
 
+        <!-- INPUT FORM -->
         <form id="ideaForm" class="space-y-4">
-            <div>
-                <label for="ideaText" class="block text-sm font-medium text-gray-300 mb-1">Your Idea (Max 280 chars):</label>
-                <textarea id="ideaText" name="ideaText" rows="4" maxlength="280"
-                          class="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                          placeholder="What's your new idea? e.g., 'A fork that vibrates if you eat too fast'"></textarea>
-                <div class="text-right text-sm text-gray-500">
-                    <span id="charCount">0</span> / 280
-                </div>
+            <label class="block text-sm mb-1">Your Idea (Max 280 chars):</label>
+
+            <textarea id="ideaText" rows="4" maxlength="280"
+                class="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:ring-indigo-500"
+                placeholder="Example: A fork that vibrates if you eat too fast"></textarea>
+
+            <div class="text-right text-sm text-gray-400">
+                <span id="charCount">0</span> / 280
             </div>
 
             <button type="submit" id="submitButton"
-                    class="w-full flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-md transition duration-300 ease-in-out">
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-3 rounded-md flex items-center justify-center">
                 <span id="buttonText">Analyze Originality</span>
                 <div id="loadingSpinner" class="spinner hidden ml-2"></div>
             </button>
         </form>
 
-        <div id="resultContainer" class="mt-6 hidden space-y-6">
-            
+        <!-- OUTPUT -->
+        <div id="resultContainer" class="hidden mt-6">
             <div id="resultOutput"></div>
-
-            <pre id="debugOutput" class="w-full p-4 bg-gray-900 border border-gray-700 rounded-md text-sm overflow-x-auto whitespace-pre-wrap hidden"></pre>
-        
         </div>
     </div>
 
     <script>
-        // --- CONFIGURATION ---
-        // ⚠️ IMPORTANT: Update these URLs
-        const ANALYZE_WEBHOOK_URL = 'http://localhost:5678/webhook/cognify-v0';
-        const RATING_WEBHOOK_URL = 'http://localhost:5678/webhook/cognify-rate';
-        
-        // --- STATE ---
+        /* CONFIG - update these for deployment */
+        const ANALYZE_WEBHOOK_URL = "http://localhost:5678/webhook/cognify-v0";
+        const RATING_WEBHOOK_URL  = "http://localhost:5678/webhook/cognify-rate";
+
+        /* STATE */
         let currentProofId = null;
 
-        // --- ELEMENTS ---
-        const form = document.getElementById('ideaForm');
-        const ideaText = document.getElementById('ideaText');
-        const charCount = document.getElementById('charCount');
-        const submitButton = document.getElementById('submitButton');
-        const buttonText = document.getElementById('buttonText');
-        const loadingSpinner = document.getElementById('loadingSpinner');
-        const resultContainer = document.getElementById('resultContainer');
-        const resultOutput = document.getElementById('resultOutput');
-        const debugOutput = document.getElementById('debugOutput');
+        /* ELEMENTS */
+        const ideaText = document.getElementById("ideaText");
+        const charCount = document.getElementById("charCount");
+        const resultContainer = document.getElementById("resultContainer");
+        const resultOutput = document.getElementById("resultOutput");
+        const submitButton = document.getElementById("submitButton");
+        const buttonText = document.getElementById("buttonText");
+        const loadingSpinner = document.getElementById("loadingSpinner");
 
-        // --- EVENT LISTENERS ---
-        
-        // Character counter
-        ideaText.addEventListener('input', () => {
+        /* Character counter */
+        ideaText.addEventListener("input", () => {
             charCount.textContent = ideaText.value.length;
         });
 
-        // Form submission
-        form.addEventListener('submit', async (e) => {
+        /* FORM SUBMIT */
+        document.getElementById("ideaForm").addEventListener("submit", async (e) => {
             e.preventDefault();
-            if (ideaText.value.trim() === '') return;
-            if (ANALYZE_WEBHOOK_URL.includes('YOUR_')) {
-                alert('ERROR: ANALYZE_WEBHOOK_URL is not configured.');
-                return;
-            }
+            if (!ideaText.value.trim()) return;
 
             setLoading(true);
-            currentProofId = null; // Reset proof ID
 
             try {
                 const response = await fetch(ANALYZE_WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ text: ideaText.value })
                 });
 
-                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-                const result = await response.json();
-                
-                // Store proof_id for rating
-                if(result.proof_id) {
-                    currentProofId = result.proof_id;
-                }
-                
-                displayResult(result);
-                // debugOutput.textContent = JSON.stringify(result, null, 2); // Uncomment to debug
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-            } catch (error) {
-                console.error('Error submitting idea:', error);
-                displayResult({ error: error.message });
+                const data = await response.json();
+                console.log("RAW RESPONSE:", data);
+
+                displayResult(data);
+
+            } catch (err) {
+                console.error(err);
+                displayResult({ error: "Server error: " + err.message });
+
             } finally {
                 setLoading(false);
             }
         });
 
-        // --- RATING SUBMISSION ---
-        async function submitRating(rating) {
-            if (!currentProofId) {
-                alert('Could not find a proof_id to rate.');
-                return;
-            }
-            if (RATING_WEBHOOK_URL.includes('YOUR_')) {
-                alert('ERROR: RATING_WEBHOOK_URL is not configured.');
-                return;
-            }
 
-            const ratingElement = document.getElementById('ratingSection');
-            ratingElement.innerHTML = `<p class="text-center text-amber-500">Submitting your ${rating}-star rating...</p>`;
+        /* RATING SUBMISSION */
+        async function submitRating(rating) {
+            if (!currentProofId) return alert("No proof ID available.");
 
             try {
-                const response = await fetch(RATING_WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        idea_id: currentProofId,
-                        rating: rating
-                    })
+                await fetch(RATING_WEBHOOK_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ idea_id: currentProofId, rating })
                 });
 
-                if (!response.ok) throw new Error('Rating submission failed.');
-                
-                // Show success message
-                setTimeout(() => {
-                    ratingElement.innerHTML = `<p class="text-center text-green-400 font-bold">Thank you for your rating!</p>`;
-                }, 1000);
+                document.getElementById("ratingSection").innerHTML =
+                    `<p class="text-green-400 font-bold text-center">Thanks for rating!</p>`;
 
-            } catch (error) {
-                console.error('Error submitting rating:', error);
-                ratingElement.innerHTML = `<p class="text-center text-red-400">Error: ${error.message}</p>`;
+            } catch (err) {
+                alert("Rating failed.");
             }
         }
 
-        // --- HELPER FUNCTIONS ---
-        
+        /* LOADING HANDLER */
         function setLoading(isLoading) {
+            buttonText.textContent = isLoading ? "Analyzing..." : "Analyze Originality";
             submitButton.disabled = isLoading;
-            loadingSpinner.classList.toggle('hidden', !isLoading);
-            buttonText.textContent = isLoading ? 'Analyzing...' : 'Analyze Originality';
-            resultContainer.classList.add('hidden');
+            loadingSpinner.classList.toggle("hidden", !isLoading);
+            if (isLoading) resultContainer.classList.add("hidden");
         }
 
+        /* DISPLAY RESULT */
         function displayResult(data) {
-            resultOutput.innerHTML = ''; // Clear previous results
+            resultOutput.innerHTML = "";
 
-            if (data.error) {
-                resultOutput.innerHTML = `<h2 class="text-2xl font-semibold text-red-400">Error</h2><p>${data.error}</p>`;
-                resultContainer.classList.remove('hidden');
+            // normalize response shape
+            const fr = data.frontend_response || data;
+
+            if (!fr || typeof fr !== "object") {
+                resultOutput.innerHTML = `<p class="text-red-400">Invalid server response.</p>`;
+                resultContainer.classList.remove("hidden");
                 return;
             }
 
-            // Build the dynamic HTML
-            let html = '';
-
-            // 1. Verdict Header
-            if (data.verdict === 'UNIQUE') {
-                html += `<h2 class="text-2xl font-semibold text-green-400">Verdict: ${data.verdict}</h2>`;
-            } else {
-                html += `<h2 class="text-2xl font-semibold text-amber-400">Verdict: ${data.verdict}</h2>`;
-                if(data.components?.ai_analysis?.note) {
-                    html += `<p class="text-sm text-gray-400">${data.components.ai_analysis.note}</p>`;
-                }
+            if (fr.error) {
+                resultOutput.innerHTML = `<p class="text-red-400">${fr.error}</p>`;
+                resultContainer.classList.remove("hidden");
+                return;
             }
-            html += `<p class="text-xs font-mono text-gray-500">Proof ID: ${data.proof_id}</p>`;
-            
-            // 2. AI Analysis Block
-            const ai = data.components?.ai_analysis;
-            if(ai) {
-                html += '<div class="border-t border-gray-700 pt-4 mt-4">';
-                html += `<h3 class="text-xl font-semibold mb-3">Cognitive Analysis</h3>`;
-                
-                // Ambiguity Bar
-                const ambiguity = (ai.ambiguity_index || 0) * 100;
-                html += `
-                    <div>
-                        <label class="text-sm font-medium">Ambiguity Index</label>
-                        <div class="w-full bg-gray-700 rounded-full h-2.5">
-                            <div class="bg-indigo-500 h-2.5 rounded-full" style="width: ${ambiguity}%"></div>
+
+            // Save proof ID for rating
+            currentProofId = fr.proof_id;
+
+            const ai = fr.components?.ai_analysis || {};
+            const interpretations = ai.interpretations || [];
+
+            let html = `
+                <h2 class="text-2xl font-bold text-green-400">Verdict: ${fr.verdict}</h2>
+                <p class="text-xs text-gray-400 mb-3">Proof ID: ${fr.proof_id}</p>
+
+                <div class="border-t border-gray-700 pt-4 mt-4">
+                    <h3 class="text-xl font-semibold mb-2">Cognitive Analysis</h3>
+
+                    <p><strong>Summary:</strong> ${ai.summary || "(no summary)"}</p>
+
+                    <div class="mt-4">
+                        <label class="text-sm">Ambiguity Index</label>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div class="bg-indigo-500 h-2 rounded-full"
+                                 style="width:${(ai.ambiguity_index || 0) * 100}%"></div>
                         </div>
-                        <p class="text-xs text-gray-400">${ai.ambiguity_index} (0.0 = Specific, 1.0 = Abstract)</p>
+                        <p class="text-xs text-gray-400">${ai.ambiguity_index ?? "(none)"}</p>
                     </div>
-                `;
 
-                // Summary
-                html += `<p class="mt-3"><strong class="text-gray-300">Summary:</strong> ${ai.summary}</p>`;
-                
-                // Interpretations
-                if (ai.interpretations && ai.interpretations.length > 0) {
-                    html += '<h4 class="text-md font-semibold mt-4 mb-2">Possible Interpretations:</h4>';
-                    html += '<ul class="list-disc list-inside space-y-1">';
-                    ai.interpretations.forEach(item => {
-                        html += `<li><strong class="text-indigo-300">${item.theme}:</strong> ${item.interpretation}</li>`;
-                    });
-                    html += '</ul>';
-                }
-                html += '</div>';
-            }
+                    <h4 class="text-md font-semibold mt-4 mb-1">Possible Interpretations:</h4>
+                    <ul class="list-disc list-inside space-y-1">
+            `;
 
-            // 3. Crowd-Check Rating Block
-            if (data.verdict === 'UNIQUE' || data.components?.ai_analysis?.note) {
-                html += `
-                    <div id="ratingSection" class="border-t border-gray-700 pt-4 mt-4">
-                        <h3 class="text-xl font-semibold text-center mb-2">Rate this Idea</h3>
-                        <div class="star-rating">
-                            <input type="radio" id="star5" name="rating" value="5" onclick="submitRating(5)"><label for="star5" title="5 stars">★</label>
-                            <input type="radio" id="star4" name="rating" value="4" onclick="submitRating(4)"><label for="star4" title="4 stars">★</label>
-                            <input type="radio" id="star3" name="rating" value="3" onclick="submitRating(3)"><label for="star3" title="3 stars">★</label>
-                            <input type="radio" id="star2" name="rating" value="2" onclick="submitRating(2)"><label for="star2" title="2 stars">★</label>
-                            <input type="radio" id="star1" name="rating" value="1" onclick="submitRating(1)"><label for="star1" title="1 star">★</label>
-                        </div>
+            interpretations.forEach(i => {
+                html += `<li><span class="text-indigo-300">${i.theme}:</span> ${i.interpretation}</li>`;
+            });
+
+            html += `
+                    </ul>
+                </div>
+
+                <div id="ratingSection" class="border-t border-gray-700 mt-6 pt-4">
+                    <h3 class="text-lg font-semibold text-center mb-1">Rate this Idea</h3>
+
+                    <div class="star-rating">
+                        <input id="star5" type="radio" name="rating" onclick="submitRating(5)">
+                        <label for="star5">★</label>
+
+                        <input id="star4" type="radio" name="rating" onclick="submitRating(4)">
+                        <label for="star4">★</label>
+
+                        <input id="star3" type="radio" name="rating" onclick="submitRating(3)">
+                        <label for="star3">★</label>
+
+                        <input id="star2" type="radio" name="rating" onclick="submitRating(2)">
+                        <label for="star2">★</label>
+
+                        <input id="star1" type="radio" name="rating" onclick="submitRating(1)">
+                        <label for="star1">★</label>
                     </div>
-                `;
-            }
+                </div>
+            `;
 
             resultOutput.innerHTML = html;
-            resultContainer.classList.remove('hidden');
+            resultContainer.classList.remove("hidden");
         }
-
     </script>
 </body>
 </html>
