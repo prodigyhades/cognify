@@ -1,0 +1,171 @@
+{
+  "name": "Cognify - Rating Submission",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cognify-rate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c84cfdcd-a3c9-4347-9638-6c443ba2334d",
+      "name": "Webhook",
+      "webhookId": "4b86f3dd-7e2b-4cea-82d5-9a1fd446a162"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "17xY4xz4ayZMW2Sq4HLy_1Qf5VvumzbE1SXoztPt6EgY",
+          "mode": "list",
+          "cachedResultName": "cognify_db",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17xY4xz4ayZMW2Sq4HLy_1Qf5VvumzbE1SXoztPt6EgY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2083074885,
+          "mode": "list",
+          "cachedResultName": "idea_ratings",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17xY4xz4ayZMW2Sq4HLy_1Qf5VvumzbE1SXoztPt6EgY/edit#gid=2083074885"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "idea_id": "={{ $json.body.idea_id }}",
+            "rating_id": "={{ $now }}",
+            "user_id": "guest",
+            "rating": "={{ $json.body.rating }}",
+            "timestamp": "={{$now.toISODate()}}"
+          },
+          "matchingColumns": [
+            "idea_id"
+          ],
+          "schema": [
+            {
+              "id": "rating_id",
+              "displayName": "rating_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "idea_id",
+              "displayName": "idea_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "rating",
+              "displayName": "rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "510d2717-d3cb-4892-8fed-87536ca3d368",
+      "name": "Append to 'idea_ratings'",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "bH4FiG4USxDwWp2m",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        448,
+        0
+      ],
+      "id": "c90b1edd-8596-4445-a1ef-9f7706a0168f",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Append to 'idea_ratings'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to 'idea_ratings'": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e07f5747-92f3-4655-a286-9b782507cdf1",
+  "meta": {
+    "instanceId": "e59d18abf175de5641251922b11518c4c2848f6be607abc2f1cec1c375611629"
+  },
+  "id": "Gf81feu1GciHmWAY",
+  "tags": []
+}
