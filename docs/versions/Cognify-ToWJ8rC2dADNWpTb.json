@@ -1,6 +1,6 @@
 [
   {
-    "updatedAt": "2025-11-16T08:57:54.000Z",
+    "updatedAt": "2025-11-20T17:43:13.000Z",
     "createdAt": "2025-11-06T17:30:56.365Z",
     "id": "ToWJ8rC2dADNWpTb",
     "name": "Cognify",
@@ -20,7 +20,7 @@
         "typeVersion": 2.1,
         "position": [
           0,
-          -16
+          80
         ],
         "id": "4d46d305-2089-4f2a-af50-a92f65b1ada8",
         "name": "Webhook",
@@ -35,7 +35,7 @@
         "typeVersion": 2,
         "position": [
           224,
-          -16
+          80
         ],
         "id": "72ecdc5c-065a-4af4-8fae-179677d01f44",
         "name": "Normalize & Hash"
@@ -49,7 +49,7 @@
         "type": "n8n-nodes-base.respondToWebhook",
         "typeVersion": 1.4,
         "position": [
-          2048,
+          1376,
           -16
         ],
         "id": "ad7b71b4-87f7-41ad-af27-517e5519126f",
@@ -63,8 +63,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1632,
-          96
+          1152,
+          80
         ],
         "id": "f8e0c6bd-a0c9-4e41-9b86-702c451a3be1",
         "name": "Decision Fusion"
@@ -78,8 +78,8 @@
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
         "typeVersion": 1.7,
         "position": [
-          1248,
-          112
+          800,
+          80
         ],
         "id": "a05c6139-0325-4708-90c7-91e8419b4835",
         "name": "Basic LLM Chain",
@@ -93,8 +93,8 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
         "typeVersion": 1,
         "position": [
-          1248,
-          336
+          880,
+          304
         ],
         "id": "3e02e048-5d03-4730-b543-888df5505dae",
         "name": "Google Gemini Chat Model1",
@@ -104,84 +104,6 @@
             "name": "Google Gemini(PaLM) Api account"
           }
         }
-      },
-      {
-        "parameters": {
-          "documentId": {
-            "__rl": true,
-            "value": "17xY4xz4ayZMW2Sq4HLy_1Qf5VvumzbE1SXoztPt6EgY",
-            "mode": "list",
-            "cachedResultName": "cognify_db",
-            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17xY4xz4ayZMW2Sq4HLy_1Qf5VvumzbE1SXoztPt6EgY/edit?usp=drivesdk"
-          },
-          "sheetName": {
-            "__rl": true,
-            "value": "gid=0",
-            "mode": "list",
-            "cachedResultName": "ideas",
-            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17xY4xz4ayZMW2Sq4HLy_1Qf5VvumzbE1SXoztPt6EgY/edit#gid=0"
-          },
-          "filtersUI": {
-            "values": [
-              {
-                "lookupColumn": "idea_id",
-                "lookupValue": "={{ $('Normalize & Hash').item.json.idea_id }}"
-              }
-            ]
-          },
-          "options": {}
-        },
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.7,
-        "position": [
-          448,
-          -16
-        ],
-        "id": "e75b6ed6-3f49-4eaf-b4ed-7c55fb8f7c4c",
-        "name": "Search Sheet for idea_id",
-        "alwaysOutputData": true,
-        "retryOnFail": true,
-        "maxTries": 3,
-        "credentials": {
-          "googleSheetsOAuth2Api": {
-            "id": "bH4FiG4USxDwWp2m",
-            "name": "Google Sheets account"
-          }
-        }
-      },
-      {
-        "parameters": {
-          "conditions": {
-            "options": {
-              "caseSensitive": true,
-              "leftValue": "",
-              "typeValidation": "strict",
-              "version": 2
-            },
-            "conditions": [
-              {
-                "id": "732b3c3b-fac1-4765-94ea-f0a1de053c4f",
-                "leftValue": "={{ Object.keys($('Search Sheet for idea_id').item.json).length }}",
-                "rightValue": 0,
-                "operator": {
-                  "type": "number",
-                  "operation": "gt"
-                }
-              }
-            ],
-            "combinator": "and"
-          },
-          "options": {}
-        },
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          672,
-          -16
-        ],
-        "id": "95e35d8c-3d10-4c95-acac-d7331bc3babf",
-        "name": "If",
-        "alwaysOutputData": false
       },
       {
         "parameters": {
@@ -294,8 +216,8 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.7,
         "position": [
-          1824,
-          224
+          1376,
+          176
         ],
         "id": "bfeba95c-b321-4ac1-931e-bb81957c3943",
         "name": "Append row in sheet",
@@ -308,25 +230,12 @@
         }
       },
       {
-        "parameters": {
-          "jsCode": "/* ==================================\n * Decision Fusion (Duplicate)\n * ==================================\n * This node formats the response when\n * a duplicate is found.\n */\n\n// Get the data from the 'Search Sheet' node\n// We use $json because it's the first (and only) item found\nconst searchResult = $json;\n\n// We need to re-format the data from the sheet\n// to match our finalResponse structure.\nconst finalResponse = {\n  verdict: 'DUPLICATE',\n  proof_id: searchResult.idea_id,\n  timestamp: searchResult.timestamp, // The timestamp of the *original* idea\n  components: {\n    deterministic: {\n      is_duplicate: true,\n      normalized_text: searchResult.normalized_text\n    },\n    ai_analysis: {\n      model: searchResult.model,\n      sentiment: searchResult.sentiment,\n      summary: searchResult.summary,\n      note: \"This is a duplicate. Analysis is from the original submission.\"\n    }\n  }\n};\n\nreturn finalResponse;"
-        },
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          1824,
-          -144
-        ],
-        "id": "0addc5a2-9e8c-47cf-830d-5b677f305483",
-        "name": "Decision Fusion (Duplicate)"
-      },
-      {
         "parameters": {},
         "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
         "typeVersion": 1,
         "position": [
-          896,
-          336
+          464,
+          304
         ],
         "id": "bda8ce79-aca1-49df-b9ec-aff2568c90c3",
         "name": "Embeddings Google Gemini",
@@ -351,8 +260,8 @@
         "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
         "typeVersion": 1.3,
         "position": [
-          896,
-          112
+          448,
+          80
         ],
         "id": "9ac1c6fc-7106-414d-8729-9e564731fc74",
         "name": "Qdrant Vector Store",
@@ -389,8 +298,8 @@
         "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
         "typeVersion": 1.1,
         "position": [
-          1088,
-          336
+          624,
+          304
         ],
         "id": "c21dcaed-9f4e-4e50-8331-6d5a4ac5a64b",
         "name": "Default Data Loader"
@@ -398,14 +307,14 @@
       {
         "parameters": {
           "content": "## [Upload to github](http://localhost:5678/form/commit?id=ToWJ8rC2dADNWpTb)",
-          "height": 192,
-          "width": 456,
+          "height": 80,
+          "width": 264,
           "color": 6
         },
         "type": "n8n-nodes-base.stickyNote",
         "position": [
-          0,
-          -336
+          16,
+          -240
         ],
         "typeVersion": 1,
         "id": "46f88326-aac6-4a56-ae7b-88543ec611a5",
@@ -428,7 +337,7 @@
         "main": [
           [
             {
-              "node": "Search Sheet for idea_id",
+              "node": "Qdrant Vector Store",
               "type": "main",
               "index": 0
             }
@@ -478,46 +387,6 @@
           []
         ]
       },
-      "Search Sheet for idea_id": {
-        "main": [
-          [
-            {
-              "node": "If",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "If": {
-        "main": [
-          [
-            {
-              "node": "Decision Fusion (Duplicate)",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Qdrant Vector Store",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Decision Fusion (Duplicate)": {
-        "main": [
-          [
-            {
-              "node": "Respond to Webhook",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "Append row in sheet": {
         "main": [
           []
@@ -565,8 +434,8 @@
       "templateCredsSetupCompleted": true
     },
     "pinData": {},
-    "versionId": "3cb5cf9d-71e5-4e3a-9402-9709319797d4",
-    "versionCounter": 176,
+    "versionId": "621ce5dc-27a2-4d47-9c23-8c4d2e957e6a",
+    "versionCounter": 201,
     "triggerCount": 1,
     "shared": [
       {
@@ -590,7 +459,7 @@
               "userId": "a0be5d72-118b-474a-aab5-18afffe67643",
               "projectId": "tmc8BYRYmjwnIgTJ",
               "user": {
-                "updatedAt": "2025-11-16T06:20:10.000Z",
+                "updatedAt": "2025-11-20T12:33:41.000Z",
                 "createdAt": "2025-11-05T18:43:56.963Z",
                 "id": "a0be5d72-118b-474a-aab5-18afffe67643",
                 "email": "prodigyhades2004@gmail.com",
@@ -618,7 +487,7 @@
                 },
                 "disabled": false,
                 "mfaEnabled": false,
-                "lastActiveAt": "2025-11-16",
+                "lastActiveAt": "2025-11-20",
                 "isPending": false
               }
             }
