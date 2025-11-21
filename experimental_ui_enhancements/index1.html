@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en" class="antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cognify - Level 1 (Semantic)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'clay': {
+                            50: '#fdf8f4',
+                            100: '#f6ece3',
+                            200: '#e9d4c2',
+                            300: '#d8b699',
+                            400: '#c4916d',
+                            500: '#b4764e',
+                            600: '#a66343',
+                            700: '#8a4e38',
+                            800: '#6f4032',
+                            900: '#5a362a',
+                        },
+                        'amber': {
+                            50: '#fffdf5',
+                            100: '#fef9e7',
+                            200: '#fdf0c4',
+                            300: '#fbe38d',
+                            400: '#f9cf4b',
+                            500: '#f7b718',
+                            600: '#e0930c',
+                            700: '#b96c09',
+                            800: '#95540e',
+                            900: '#7a4510',
+                        },
+                        'teal': {
+                            50: '#f3faf9',
+                            100: '#d6f0ed',
+                            200: '#ade0da',
+                            300: '#76c9c1',
+                            400: '#48ada3',
+                            500: '#2f9188',
+                            600: '#23746e',
+                            700: '#205d59',
+                            800: '#1d4b48',
+                            900: '#1b3f3d',
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'slide-up': 'slideUp 0.4s ease-out',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Spinner */
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-left-color: #ffffff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Custom Scrollbar for Textarea */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-track {
+            background: #5a362a; 
+            border-radius: 4px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background: #b4764e; 
+            border-radius: 4px;
+        }
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: #f7b718; 
+        }
+
+        /* Preserved Star Rating CSS */
+        .star-rating { display: flex; flex-direction: row-reverse; justify-content: center; }
+        .star-rating input[type="radio"] { display: none; }
+        .star-rating label { font-size: 2.4rem; color: #b4764e; cursor: pointer; transition: color 0.2s; }
+        .star-rating input[type="radio"]:checked ~ label,
+        .star-rating label:hover, .star-rating label:hover ~ label { color: #f7b718; }
+    </style>
+</head>
+
+<body class="bg-clay-900 text-clay-100 min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 relative overflow-x-hidden">
+    
+    <div class="absolute top-0 left-1/4 w-96 h-96 bg-amber-600/15 rounded-full blur-[128px] -translate-y-1/2 pointer-events-none"></div>
+    <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-teal-600/10 rounded-full blur-[128px] translate-y-1/2 pointer-events-none"></div>
+
+    <div class="relative w-full max-w-2xl bg-clay-800/70 backdrop-blur-xl border border-clay-700/50 rounded-2xl shadow-2xl shadow-black/50 p-8 sm:p-10 animate-fade-in">
+        
+        <div class="text-center mb-10">
+            <div class="inline-flex items-center justify-center p-3 bg-clay-700/40 rounded-xl border border-clay-600/50 mb-4 shadow-lg">
+                <span class="text-3xl">🧠</span>
+            </div>
+            <h1 class="text-4xl font-extrabold tracking-tight mb-2">
+                <span class="bg-clip-text text-transparent bg-gradient-to-r from-amber-400 via-amber-300 to-clay-300">Cognify</span>
+            </h1>
+            <div class="flex items-center justify-center gap-2 mt-2">
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-400 border border-teal-500/20">Level 1</span>
+                <span class="text-clay-400 text-sm">Semantic & Crowd Analysis</span>
+            </div>
+        </div>
+
+        <form id="ideaForm" class="space-y-6">
+
+            <div class="group">
+                <div class="flex justify-between items-end mb-2">
+                    <label for="ideaText" class="block text-sm font-medium text-clay-300 group-focus-within:text-amber-400 transition-colors">
+                        Describe your concept
+                    </label>
+                    <span class="text-xs text-clay-500 font-mono bg-clay-800/80 px-2 py-1 rounded border border-clay-700">
+                        <span id="charCount" class="text-amber-500 font-bold transition-all">0</span>/280
+                    </span>
+                </div>
+                
+                <div class="relative">
+                    <textarea id="ideaText" rows="5" maxlength="280"
+                        class="w-full p-4 bg-clay-900/50 border border-clay-700 rounded-xl text-clay-100 placeholder-clay-600 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 focus:outline-none transition-all resize-none leading-relaxed shadow-inner"
+                        placeholder="e.g., An AI-powered gardening assistant that detects plant diseases using phone cameras..."></textarea>
+                    
+                    <div class="absolute bottom-2 right-2 pointer-events-none opacity-50">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 12L0 12L12 0L12 12Z" fill="#b4764e"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div id="similarContainer" class="hidden animate-slide-up">
+                <div class="bg-clay-700/40 rounded-xl p-5 border border-clay-600/60">
+                    <h4 class="text-xs uppercase tracking-wider font-bold text-amber-400 mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Database Matches
+                    </h4>
+                    
+                    <div id="similarSpinner" class="hidden mx-auto py-4">
+                        <div class="spinner border-amber-500/50 border-l-amber-500 mx-auto"></div>
+                        <p class="text-center text-xs text-amber-500/80 mt-2">Scanning database...</p>
+                    </div>
+                    
+                    <div id="similarResults" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <div class="pt-2 space-y-3">
+                <button type="button" id="searchButton"
+                    class="group relative w-full flex items-center justify-center bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-semibold py-3.5 px-6 rounded-xl shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 hover:-translate-y-0.5 transition-all duration-300 ease-out overflow-hidden">
+                    <div class="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-700 -skew-x-12 -translate-x-full"></div>
+                    
+                    <span id="searchButtonText" class="flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        Check Originality
+                    </span>
+                    <div id="searchSpinner" class="spinner hidden ml-3"></div>
+                </button>
+
+                <button type="button" id="submitButton"
+                    class="group relative w-full flex items-center justify-center bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white font-semibold py-3.5 px-6 rounded-xl shadow-lg shadow-teal-500/20 hover:shadow-teal-500/40 hover:-translate-y-0.5 transition-all duration-300 ease-out hidden">
+                    <span id="submitButtonText" class="flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Submit Unique Idea
+                    </span>
+                    <div id="submitSpinner" class="spinner hidden ml-3"></div>
+                </button>
+            </div>
+        </form>
+
+        <div id="resultContainer" class="mt-8 hidden animate-fade-in border-t border-clay-700/50 pt-6">
+            <div id="resultOutput" class="bg-clay-900/30 rounded-xl p-6 border border-clay-800 shadow-inner"></div>
+        </div>
+    </div>
+
+    <div class="mt-8 text-center text-clay-600 text-sm">
+        &copy; 2025 Cognify. AI-Assisted Validation.
+    </div>
+
+    <script>
+        const SUBMIT_URL = "http://localhost:5678/webhook/cognify-v0";
+        const SEARCH_URL = "http://localhost:5678/webhook/cognify-search";
+        const RATING_URL = "http://localhost:5678/webhook/cognify-rate";
+        const SIMILARITY_THRESHOLD = 0.85;
+
+        let currentProofId = null;
+
+        // DOM Elements
+        const ideaText = document.getElementById("ideaText");
+        const charCount = document.getElementById("charCount");
+        const similarContainer = document.getElementById("similarContainer");
+        const similarSpinner = document.getElementById("similarSpinner");
+        const similarResults = document.getElementById("similarResults");
+        const searchButton = document.getElementById("searchButton");
+        const searchButtonText = document.getElementById("searchButtonText");
+        const searchSpinner = document.getElementById("searchSpinner");
+        const submitButton = document.getElementById("submitButton");
+        const submitButtonText = document.getElementById("submitButtonText");
+        const submitSpinner = document.getElementById("submitSpinner");
+        const resultContainer = document.getElementById("resultContainer");
+        const resultOutput = document.getElementById("resultOutput");
+
+        // Character counter + reset UI
+        ideaText.addEventListener("input", () => {
+            charCount.textContent = ideaText.value.length;
+            similarContainer.classList.add("hidden");
+            resultContainer.classList.add("hidden");
+            similarResults.innerHTML = "";
+            submitButton.classList.add("hidden");
+            // Updated text content to match the new HTML initial state, 
+            // but logic dictates resetting to "Check..." if user types
+            // Preserving logic means keeping the intent:
+            searchButtonText.innerHTML = `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>Check Originality`; 
+        });
+
+        searchButton.addEventListener("click", handleSearch);
+        submitButton.addEventListener("click", handleSubmit);
+
+        // ---------------------- SEARCH ----------------------
+        async function handleSearch() {
+            const text = ideaText.value.trim();
+            if (text.length < 5) {
+                alert("Please enter a more detailed idea (at least 5 characters).");
+                return;
+            }
+
+            similarContainer.classList.remove("hidden");
+            similarSpinner.classList.remove("hidden");
+            searchButton.disabled = true;
+            searchButton.classList.add("opacity-50", "cursor-not-allowed"); // Visual feedback
+
+            try {
+                const res = await fetch(SEARCH_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text })
+                });
+
+                const data = await res.json();
+                displaySimilar(data);
+
+            } catch (err) {
+                similarResults.innerHTML =
+                    `<div class="p-3 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Error: ${err.message}
+                     </div>`;
+            }
+
+            similarSpinner.classList.add("hidden");
+            searchButton.disabled = false;
+            searchButton.classList.remove("opacity-50", "cursor-not-allowed");
+        }
+
+        // ---------------- DISPLAY SIMILAR IDEAS ----------------
+        function displaySimilar(results) {
+            similarResults.innerHTML = "";
+
+            // ✔ Case 1: No-match output from n8n
+            if (results.length === 1 && results[0].payload) {
+                let msg;
+                try {
+                    msg = JSON.parse(results[0].payload).normalized_text;
+                } catch {
+                    msg = "No close semantic matches found.";
+                }
+
+                // Clean "no match" card - Enhanced Styling
+                similarResults.innerHTML = `
+                    <div class="rounded-lg bg-teal-500/10 px-4 py-3 border border-teal-500/20 shadow-sm flex items-center gap-3 transition-all">
+                        <div class="bg-teal-500/20 p-2 rounded-full">
+                            <svg class="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        </div>
+                        <span class="text-teal-200 font-medium text-sm">${msg}</span>
+                    </div>
+                `;
+                submitButton.classList.remove("hidden");
+                submitButton.classList.add("animate-slide-up");
+                return;
+            }
+
+            // ✔ Case 2: Show semantic matches
+            results.forEach(item => {
+                const metadata = item.document?.metadata;
+                if (!metadata) return;
+
+                const scorePercent = Math.round(item.score * 100);
+                
+                // Color coding based on similarity score
+                let scoreColor = scorePercent > 80 ? 'text-red-400' : (scorePercent > 50 ? 'text-amber-400' : 'text-teal-400');
+                let borderColor = scorePercent > 80 ? 'border-red-500/30' : 'border-clay-600';
+
+                const el = document.createElement("div");
+                el.className = `rounded-lg bg-clay-800/50 px-4 py-3 border ${borderColor} shadow-sm hover:bg-clay-800 transition-colors duration-200`;
+
+                // Clean horizontal layout
+                el.innerHTML = `
+                    <div class="flex justify-between items-start gap-4">
+                        <span class="text-clay-300 text-sm leading-relaxed">${metadata.raw_text}</span>
+                        <div class="flex flex-col items-end shrink-0">
+                            <span class="${scoreColor} font-bold text-sm">${scorePercent}%</span>
+                            <span class="text-[10px] text-clay-500 uppercase">Match</span>
+                        </div>
+                    </div>
+                `;
+
+                similarResults.appendChild(el);
+            });
+
+            submitButton.classList.remove("hidden");
+            submitButton.classList.add("animate-slide-up");
+        }
+
+        // ---------------------- SUBMIT ----------------------
+        async function handleSubmit() {
+            const text = ideaText.value.trim();
+            if (!text) return;
+
+            submitButton.disabled = true;
+            submitButton.classList.add("opacity-70", "cursor-wait");
+            submitSpinner.classList.remove("hidden");
+
+            try {
+                const res = await fetch(SUBMIT_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text })
+                });
+
+                const data = await res.json();
+                displayResult(data);
+
+            } catch (err) {
+                displayResult({ error: err.message });
+            }
+
+            submitSpinner.classList.add("hidden");
+            submitButton.disabled = false;
+            submitButton.classList.remove("opacity-70", "cursor-wait");
+        }
+
+        // ---------------- DISPLAY FINAL AI ANALYSIS ----------------
+        function displayResult(data) {
+            resultOutput.innerHTML = "";
+            const fr = data.frontend_response || data;
+
+            if (fr.error) {
+                resultOutput.innerHTML =
+                    `<div class="flex items-center gap-3 text-red-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        <span class="text-lg font-medium">${fr.error}</span>
+                     </div>`;
+                resultContainer.classList.remove("hidden");
+                return;
+            }
+
+            // Verdict Color Logic
+            const isSuccess = fr.verdict && fr.verdict.toLowerCase().includes("unique");
+            const verdictColor = isSuccess ? "text-teal-400" : "text-amber-400";
+
+            let html = `
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold ${verdictColor} tracking-tight">Verdict: ${fr.verdict}</h2>
+                    <span class="text-xs font-mono text-clay-500 bg-clay-900 px-2 py-1 rounded border border-clay-800">ID: ${fr.proof_id}</span>
+                </div>
+            `;
+
+            const ai = fr.components?.ai_analysis;
+            if (ai) {
+                html += `
+                    <div class="border-t border-clay-700/50 pt-4 mt-4">
+                        <h3 class="text-lg font-semibold text-clay-200 mb-3 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                            Cognitive Analysis
+                        </h3>
+                        <p class="text-clay-300 leading-relaxed text-sm bg-clay-800/30 p-4 rounded-lg border border-clay-700/50">
+                            ${ai.summary}
+                        </p>
+                    </div>
+                `;
+            }
+
+            resultOutput.innerHTML = html;
+            resultContainer.classList.remove("hidden");
+            
+            // Smooth scroll to result
+            resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+</html>
