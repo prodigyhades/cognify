@@ -21,5 +21,3 @@ database.sqlite
 
 # OS-specific
 .DS_Store
-
-/level-0-workflow.json
