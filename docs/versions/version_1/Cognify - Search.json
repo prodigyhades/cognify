@@ -13,8 +13,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -368,
-        32
+        -592,
+        -32
       ],
       "id": "1c2302cf-203a-42d1-bdfe-a0d323b04f33",
       "name": "Webhook",
@@ -28,8 +28,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -144,
-        32
+        -368,
+        -32
       ],
       "id": "bb69a6b9-db8a-4dce-abad-ca32c59d7f0c",
       "name": "Normalize & Hash"
@@ -50,8 +50,8 @@
       "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
       "typeVersion": 1.3,
       "position": [
-        80,
-        32
+        -144,
+        96
       ],
       "id": "77d4f6a6-2a86-4822-8eec-0fd34551b4bd",
       "name": "Qdrant Vector Store (Search)",
@@ -68,8 +68,8 @@
       "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
       "typeVersion": 1,
       "position": [
-        152,
-        256
+        -80,
+        320
       ],
       "id": "5f6cd475-bcc6-4eea-a527-228040202e51",
       "name": "Embeddings Google Gemini",
@@ -82,14 +82,15 @@
     },
     {
       "parameters": {
-        "respondWith": "allIncomingItems",
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
       "position": [
-        1104,
-        32
+        1568,
+        16
       ],
       "id": "18b1d306-e400-4113-b38a-bbebda74223e",
       "name": "Respond to Webhook"
@@ -107,22 +108,22 @@
             {
               "id": "ef8f5fbb-6846-4906-aa80-2ef8bf63ad32",
               "leftValue": "={{ $json.score }}",
-              "rightValue": 0.3,
+              "rightValue": 0.4,
               "operator": {
                 "type": "number",
                 "operation": "gt"
               }
             }
           ],
-          "combinator": "and"
+          "combinator": "or"
         },
         "options": {}
       },
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.2,
       "position": [
-        432,
-        32
+        208,
+        96
       ],
       "id": "449ba1fb-163d-4542-9731-79e3f5a27186",
       "name": "Filter",
@@ -156,8 +157,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        656,
-        32
+        432,
+        96
       ],
       "id": "abfee021-9013-435a-9dc8-f651960d9b47",
       "name": "If - Any matches found?"
@@ -185,11 +186,104 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        880,
-        104
+        800,
+        160
       ],
       "id": "7de74282-3a54-4f7a-9b89-4dbe4da40ed3",
       "name": "No-match message"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a ruthless Technical Auditor. Your job is to grade the \"Implementation Detail\" of a user's idea on a scale of 0.0 to 1.0.\n\nThe User's Idea:\n\"{{ $json.normalized_text }}\"\n\n### SCORING RUBRIC\n- **0.0 - 0.3 (Blueprint Ready):** The idea describes specific mechanics, data flows, or user interactions. I could start coding this immediately.\n    * *Example:* \"A cooking app that presents daily knife-skill challenges with computer-vision grading.\" (Score: 0.2)\n- **0.4 - 0.6 (Feature List):** The idea lists specific features or functions, but lacks deep technical detail.\n    * *Example:* \"A platform with coding-style challenges for recipes where users get points for speed and accuracy.\" (Score: 0.5)\n- **0.7 - 1.0 (Lazy Abstraction):** The idea is a mere title, a vibe, or a naked analogy (\"X for Y\") without explaining *how* it works.\n    * *Example:* \"Leetcode for cooking.\" (Score: 0.9 - REJECT)\n    * *Example:* \"Uber for dogs.\" (Score: 0.8 - REJECT)\n    * *Example:* \"An app that helps you cook.\" (Score: 1.0 - REJECT)\n\n### THE \"LAZY ANALOGY\" RULE\nIf the user relies on a \"Likeness\" (e.g., \"It's like Tinder,\" \"Amazon for X\") **without** explicitly listing at least one unique feature or mechanic, you MUST score it **> 0.75**.",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        688,
+        -336
+      ],
+      "id": "1437c76a-ddc5-4c8b-ab93-efc83f32f1a2",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        656,
+        -112
+      ],
+      "id": "6507e23c-428c-4659-84f9-83cc20217d6f",
+      "name": "Ambiguity index Calculator",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "0x7Pwy6QJHE2z1VD",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1152,
+        16
+      ],
+      "id": "bb8bdc12-ad53-4ba5-9cef-568a2dc875bf",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "content": "### time inefficient",
+        "height": 80,
+        "width": 150
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        672,
+        -432
+      ],
+      "typeVersion": 1,
+      "id": "40c313ce-ec1b-4bfa-bed3-423614712530",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"reasoning\": \"The idea describes a specific mechanism involving infrared sensors, answering how it works clearly.\",\n  \"ambiguity_index\": 0.15\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        832,
+        -128
+      ],
+      "id": "654aed81-9ba8-431b-9e12-b945d473a5e8",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get all input items (The LLM result + The Search results)\nconst items = $input.all();\n\nlet ambiguityData = null;\nconst foundMatches = [];\n\n// 2. Iterate through all items to separate Analysis from Matches\nfor (const item of items) {\n  const data = item.json;\n\n  // A. Check for LLM Analysis (it has the 'output' field from the Structured Output Parser)\n  if (data.output) {\n    ambiguityData = data.output;\n  }\n\n  // B. Check for Matches (they have a 'document' field from Qdrant)\n  if (data.document) {\n    foundMatches.push({\n        score: data.score,\n        document: data.document,\n        id: data.id \n    });\n  }\n  // Note: We ignore the \"No-match message\" payload here. \n  // If that exists, 'foundMatches' stays empty [], which is exactly what we want.\n}\n\n// 3. Fallback if LLM failed for some reason\nif (!ambiguityData) {\n    ambiguityData = { ambiguity_index: 1.0, reasoning: \"Analysis data missing\" };\n}\n\n// 4. Return one clean object for the Webhook\nreturn {\n  ambiguity_analysis: ambiguityData,\n  matches: foundMatches\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        16
+      ],
+      "id": "5370b895-aaa9-4e03-91d2-cd844a92ab0c",
+      "name": "Code in JavaScript"
     }
   ],
   "pinData": {},
@@ -208,6 +302,11 @@
     "Normalize & Hash": {
       "main": [
         [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          },
           {
             "node": "Qdrant Vector Store (Search)",
             "type": "main",
@@ -258,9 +357,9 @@
       "main": [
         [
           {
-            "node": "Respond to Webhook",
+            "node": "Merge",
             "type": "main",
-            "index": 0
+            "index": 1
           }
         ],
         [
@@ -276,6 +375,61 @@
       "main": [
         [
           {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ambiguity index Calculator": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
             "node": "Respond to Webhook",
             "type": "main",
             "index": 0
@@ -288,7 +442,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "67856bf2-2cc3-4ebd-9920-c4572aac41d8",
+  "versionId": "dde8654c-35e8-40d2-8ea9-b43dc701b0d9",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e59d18abf175de5641251922b11518c4c2848f6be607abc2f1cec1c375611629"
