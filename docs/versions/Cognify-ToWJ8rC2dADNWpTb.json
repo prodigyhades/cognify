@@ -1,6 +1,6 @@
 [
   {
-    "updatedAt": "2025-11-20T17:43:13.000Z",
+    "updatedAt": "2025-11-20T18:09:27.000Z",
     "createdAt": "2025-11-06T17:30:56.365Z",
     "id": "ToWJ8rC2dADNWpTb",
     "name": "Cognify",
@@ -19,8 +19,8 @@
         "type": "n8n-nodes-base.webhook",
         "typeVersion": 2.1,
         "position": [
-          0,
-          80
+          -320,
+          -20
         ],
         "id": "4d46d305-2089-4f2a-af50-a92f65b1ada8",
         "name": "Webhook",
@@ -34,8 +34,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          224,
-          80
+          -96,
+          -20
         ],
         "id": "72ecdc5c-065a-4af4-8fae-179677d01f44",
         "name": "Normalize & Hash"
@@ -49,8 +49,8 @@
         "type": "n8n-nodes-base.respondToWebhook",
         "typeVersion": 1.4,
         "position": [
-          1376,
-          -16
+          1504,
+          -264
         ],
         "id": "ad7b71b4-87f7-41ad-af27-517e5519126f",
         "name": "Respond to Webhook"
@@ -58,13 +58,13 @@
       {
         "parameters": {
           "mode": "runOnceForEachItem",
-          "jsCode": "/* * ==================================\n * Decision Fusion (v21 - Single Output)\n * ==================================\n * This version creates one output item\n * containing two nested objects:\n * 1. 'frontend_response': for the UI\n * 2. 'sheet_data': for Google Sheets\n */\n\n// --- 1. Get Normalization Data ---\nconst normData = $('Normalize & Hash').item.json;\n\nif (!normData || !normData.idea_id || !normData.normalized_text) {\n  // Return a valid error for the frontend\n  return {\n    frontend_response: {\n      verdict: 'ERROR',\n      proof_id: null, timestamp: new Date().toISOString(),\n      components: {\n        deterministic: { is_duplicate: false, normalized_text: 'Unknown' },\n        ai_analysis: { summary: \"Critical error: 'Normalize & Hash' data was not found.\" }\n      }\n    },\n    sheet_data: {} // Send empty object to sheet path\n  };\n}\n\n// --- 2. Get Gemini Data ---\nconst geminiRawOutput = $('Basic LLM Chain').item.json.text;\n\n// --- 3. Parse Gemini Data ---\nlet aiAnalysis = {};\nlet geminiError = null;\ntry {\n  if (geminiRawOutput && typeof geminiRawOutput === 'string' && geminiRawOutput.trim() !== '') {\n    const jsonMatch = geminiRawOutput.match(/{[\\s\\S]*}/);\n    if (!jsonMatch || !jsonMatch[0]) {\n      throw new Error(\"No JSON object found in AI response.\");\n    }\n    const jsonString = jsonMatch[0];\n    aiAnalysis = JSON.parse(jsonString);\n    \n    if (!aiAnalysis.summary || !aiAnalysis.interpretations || aiAnalysis.ambiguity_index === undefined) {\n      throw new Error(\"Parsed JSON is missing 'summary', 'interpretations', or 'ambiguity_index'.\");\n    }\n  } else {\n    throw new Error('Gemini node returned no usable output.');\n  }\n} catch (e) {\n  console.error('Failed to parse Gemini JSON:', geminiRawOutput, 'Error:', e.message);\n  geminiError = {\n    error_details: e.message,\n    raw_output: geminiRawOutput || null\n  };\n  aiAnalysis = {\n    summary: 'Analysis failed.',\n    interpretations: [],\n    ambiguity_index: 1.0,\n    confidence: 0.0\n  };\n}\n\n// --- 4. Get Qdrant Status ---\nconst qdrantResult = $('Qdrant Vector Store').item.json;\nconst embeddingStored = (qdrantResult && qdrantResult.pageContent) ? true : false;\n\n// --- 5. Assemble Final Response ---\nconst { idea_id, normalized_text, timestamp, is_duplicate } = normData;\nconst verdict = 'UNIQUE';\n\n// A. Create the response for the frontend (with a real object)\nconst finalAiAnalysis = {\n  model: 'models/gemini-2.Mflash',\n  ...aiAnalysis,\n  ...(geminiError && { \n    error: geminiError\n  })\n};\nconst finalResponse = {\n  verdict: verdict,\n  proof_id: idea_id,\n  timestamp: timestamp,\n  components: {\n    deterministic: {\n      is_duplicate: is_duplicate ?? false,\n      normalized_text: normalized_text\n    },\n    ai_analysis: finalAiAnalysis, // <-- This is an OBJECT\n    vector_db: {\n      embedding_stored: embeddingStored\n    }\n  }\n};\n\n// B. Create the data for the Google Sheet\nconst sheetData = {\n  ...normData,\n  verdict: verdict,\n  ai_analysis: JSON.stringify(finalAiAnalysis), // Stringified\n  embedding_stored: embeddingStored\n};\n\n// C. Return ONE item that contains BOTH\nreturn {\n  frontend_response: finalResponse,\n  sheet_data: sheetData\n};"
+          "jsCode": "/* ==================================\n * Decision Fusion (Gatekeeper Version)\n * ==================================\n * 1. Reads data from 'Normalize & Hash'\n * 2. Reads VALIDATED analysis from 'Check Ambiguity'\n * 3. Reads storage status from 'Qdrant Vector Store'\n */\n\n// --- 1. Get Normalization Data ---\n// We use 'first()' or .item.json depending on n8n version. \n// This standard method works for the immediate item context.\nconst normData = $('Normalize & Hash').item.json;\n\nif (!normData || !normData.idea_id) {\n  return {\n    frontend_response: {\n      verdict: 'ERROR',\n      error: \"Critical Error: Normalization data missing.\"\n    },\n    sheet_data: {}\n  };\n}\n\n// --- 2. Get AI Analysis (From the Gatekeeper Node) ---\n// We no longer parse raw text here. The 'Check Ambiguity' node \n// already parsed it and put it in the 'analysis' property.\nlet aiAnalysis = {};\ntry {\n    aiAnalysis = $('Ambiguity Check').item.json.analysis;\n} catch (e) {\n    // Fallback if something weird happens upstream\n    aiAnalysis = { \n        summary: \"Analysis data missing from Gatekeeper\", \n        ambiguity_index: 1.0 \n    };\n}\n\n// --- 3. Get Qdrant Status ---\n// Checks if the insert operation returned a result\nlet embeddingStored = false;\ntry {\n    const qdrantResult = $('Qdrant Vector Store').item.json;\n    // If Qdrant outputs the document or a success status, we mark true\n    if (qdrantResult) {\n        embeddingStored = true;\n    }\n} catch (e) {\n    console.log(\"Qdrant node data not found\");\n}\n\n// --- 4. Assemble Final Response ---\nconst { idea_id, normalized_text, raw_text, timestamp, is_duplicate } = normData;\nconst verdict = 'UNIQUE'; \n\n// A. Frontend Response Object\nconst finalAiAnalysis = {\n  model: 'models/gemini-2.Mflash',\n  ...aiAnalysis\n};\n\nconst finalResponse = {\n  verdict: verdict,\n  proof_id: idea_id,\n  timestamp: timestamp,\n  components: {\n    deterministic: {\n      is_duplicate: is_duplicate ?? false,\n      normalized_text: normalized_text\n    },\n    ai_analysis: finalAiAnalysis,\n    vector_db: {\n      embedding_stored: embeddingStored\n    }\n  }\n};\n\n// B. Sheet Data Object (Flattened for rows)\nconst sheetData = {\n  idea_id: idea_id,\n  timestamp: timestamp,\n  normalized_text: normalized_text,\n  raw_text: raw_text || normalized_text,\n  verdict: verdict,\n  ai_analysis: JSON.stringify(finalAiAnalysis), // Sheets need stringified JSON\n  embedding_stored: embeddingStored\n};\n\n// --- 5. Return Single Output ---\nreturn {\n  frontend_response: finalResponse,\n  sheet_data: sheetData\n};"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1152,
-          80
+          1280,
+          -168
         ],
         "id": "f8e0c6bd-a0c9-4e41-9b86-702c451a3be1",
         "name": "Decision Fusion"
@@ -78,8 +78,8 @@
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
         "typeVersion": 1.7,
         "position": [
-          800,
-          80
+          128,
+          -20
         ],
         "id": "a05c6139-0325-4708-90c7-91e8419b4835",
         "name": "Basic LLM Chain",
@@ -93,8 +93,8 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
         "typeVersion": 1,
         "position": [
-          880,
-          304
+          200,
+          204
         ],
         "id": "3e02e048-5d03-4730-b543-888df5505dae",
         "name": "Google Gemini Chat Model1",
@@ -216,8 +216,8 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.7,
         "position": [
-          1376,
-          176
+          1504,
+          -72
         ],
         "id": "bfeba95c-b321-4ac1-931e-bb81957c3943",
         "name": "Append row in sheet",
@@ -234,8 +234,8 @@
         "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
         "typeVersion": 1,
         "position": [
-          464,
-          304
+          936,
+          -48
         ],
         "id": "bda8ce79-aca1-49df-b9ec-aff2568c90c3",
         "name": "Embeddings Google Gemini",
@@ -260,8 +260,8 @@
         "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
         "typeVersion": 1.3,
         "position": [
-          448,
-          80
+          928,
+          -272
         ],
         "id": "9ac1c6fc-7106-414d-8729-9e564731fc74",
         "name": "Qdrant Vector Store",
@@ -298,8 +298,8 @@
         "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
         "typeVersion": 1.1,
         "position": [
-          624,
-          304
+          1064,
+          -48
         ],
         "id": "c21dcaed-9f4e-4e50-8331-6d5a4ac5a64b",
         "name": "Default Data Loader"
@@ -313,12 +313,74 @@
         },
         "type": "n8n-nodes-base.stickyNote",
         "position": [
-          16,
-          -240
+          -320,
+          -128
         ],
         "typeVersion": 1,
         "id": "46f88326-aac6-4a56-ae7b-88543ec611a5",
         "name": "Sticky Note"
+      },
+      {
+        "parameters": {
+          "jsCode": "// 1. Get the raw text from the LLM\nconst llmOutput = $('Basic LLM Chain').item.json.text;\n\nlet analysis = {};\ntry {\n  // 2. Find the JSON object inside the text (removes markdown if present)\n  const jsonMatch = llmOutput.match(/{[\\s\\S]*}/);\n  if (jsonMatch) {\n      analysis = JSON.parse(jsonMatch[0]);\n  }\n} catch (e) {\n  return { error: \"Failed to parse LLM output\", pass: false };\n}\n\n// 3. Check the score\n// Default to 1.0 (bad) if missing\nconst score = analysis.ambiguity_index !== undefined ? analysis.ambiguity_index : 1.0;\n\n// 4. The Rule: Reject if > 0.7\nif (score > 0.7) {\n  return {\n    pass: false,\n    reason: \"Too Ambiguous\",\n    score: score,\n    details: analysis\n  };\n}\n\n// 5. Pass!\nreturn {\n  pass: true,\n  score: score,\n  analysis: analysis\n};"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          -20
+        ],
+        "id": "81424524-a349-49f4-8d57-364f8e8346cd",
+        "name": "Ambiguity Check"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "4bfeffba-41ad-49fe-8d73-0c5e27baa65d",
+                "leftValue": "={{ $json.pass }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          704,
+          -20
+        ],
+        "id": "893f91c3-d054-437a-ab30-a98e5e2eaebd",
+        "name": "Passed Gatekeeper?"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{\n  {\n    \"verdict\": \"REJECTED\",\n    \"reason\": $json.error,\n    \"score\": $json.score,\n    \"details\": $json.details\n  }\n}}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          992,
+          128
+        ],
+        "id": "ec190a86-476a-475f-b7cc-f590c61d3706",
+        "name": "Respond to Webhook1"
       }
     ],
     "connections": {
@@ -337,7 +399,7 @@
         "main": [
           [
             {
-              "node": "Qdrant Vector Store",
+              "node": "Basic LLM Chain",
               "type": "main",
               "index": 0
             }
@@ -375,7 +437,7 @@
         "main": [
           [
             {
-              "node": "Decision Fusion",
+              "node": "Ambiguity Check",
               "type": "main",
               "index": 0
             }
@@ -418,7 +480,36 @@
         "main": [
           [
             {
-              "node": "Basic LLM Chain",
+              "node": "Decision Fusion",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ambiguity Check": {
+        "main": [
+          [
+            {
+              "node": "Passed Gatekeeper?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Passed Gatekeeper?": {
+        "main": [
+          [
+            {
+              "node": "Qdrant Vector Store",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond to Webhook1",
               "type": "main",
               "index": 0
             }
@@ -434,8 +525,8 @@
       "templateCredsSetupCompleted": true
     },
     "pinData": {},
-    "versionId": "621ce5dc-27a2-4d47-9c23-8c4d2e957e6a",
-    "versionCounter": 201,
+    "versionId": "80c19e6e-b509-4440-bc1f-bf9367c93a7e",
+    "versionCounter": 212,
     "triggerCount": 1,
     "shared": [
       {
@@ -459,7 +550,7 @@
               "userId": "a0be5d72-118b-474a-aab5-18afffe67643",
               "projectId": "tmc8BYRYmjwnIgTJ",
               "user": {
-                "updatedAt": "2025-11-20T12:33:41.000Z",
+                "updatedAt": "2025-11-21T13:13:07.000Z",
                 "createdAt": "2025-11-05T18:43:56.963Z",
                 "id": "a0be5d72-118b-474a-aab5-18afffe67643",
                 "email": "prodigyhades2004@gmail.com",
@@ -487,7 +578,7 @@
                 },
                 "disabled": false,
                 "mfaEnabled": false,
-                "lastActiveAt": "2025-11-20",
+                "lastActiveAt": "2025-11-21",
                 "isPending": false
               }
             }
